@@ -1,0 +1,14 @@
+# This Laravel project sits inside XAMPP's htdocs, so Apache can see the whole
+# folder. Only public/ may be reached from a browser — never .env, vendor/,
+# storage/, config files or source code.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # http://localhost/CashRoute/Cashroute_backend/  ->  public/
+    RewriteRule ^$ %{REQUEST_URI}public/ [R=302,L]
+
+    # Block everything outside public/
+    RewriteRule ^(?!public(/|$)) - [F,L]
+</IfModule>
