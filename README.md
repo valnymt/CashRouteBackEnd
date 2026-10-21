@@ -1,5 +1,8 @@
 # CashRoute – Backend API
 
+**Team members: start with [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md)** — database design, MySQL setup,
+migrations, and which git branch each person works on.
+
 Laravel 12 API for CashRoute. The HQ admin portal (React) is a separate project next to this one:
 
 ```
