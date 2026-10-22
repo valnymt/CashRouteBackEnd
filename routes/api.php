@@ -2,8 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AuthController;
-
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
 // Quick check that the API is up: GET /api/health
@@ -30,7 +30,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/teams/{id}', [TeamController::class, 'update']);
 });
 
-// CashRoute endpoints go here when the backend is built. The frontend expects
-// the routes listed in CashRoute_Admin_Portal/README.md → "Connecting the Laravel backend"
-// (login, me, logout, branches, branch-directory, users, teams, requests, audit-logs,
-// trips, notifications).
+// Approvals
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/requests/{id}/approve', [ApprovalController::class, 'approve']);
+    Route::post('/requests/{id}/reject',  [ApprovalController::class, 'reject']);
+    Route::post('/requests/{id}/assign',  [ApprovalController::class, 'assign']);
+    Route::post('/requests/{id}/cancel-approved', [ApprovalController::class, 'cancelApproved']);
+});
