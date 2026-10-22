@@ -19,4 +19,25 @@ class Branch extends Model
         'is_hq',
         'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_hq'            => 'boolean',
+            'is_active'        => 'boolean',
+            'lat'              => 'float',
+            'lng'              => 'float',
+            'handover_radius'  => 'integer',
+        ];
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function cashRequests()
+    {
+        return $this->hasMany(CashRequest::class);
+    }
 }

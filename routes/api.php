@@ -2,18 +2,35 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\UserController;
 
 // Quick check that the API is up: GET /api/health
 Route::get('/health', fn () => response()->json([
     'status' => 'ok',
-    'app' => config('app.name'),
-    'time' => now()->toIso8601String(),
+    'app'    => config('app.name'),
+    'time'   => now()->toIso8601String(),
 ]));
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+// Auth
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/token', [AuthController::class, 'token']);
 
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Users & Teams
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::get('/teams', [TeamController::class, 'index']);
+    Route::post('/teams', [TeamController::class, 'store']);
+    Route::put('/teams/{id}', [TeamController::class, 'update']);
+});
+
+// Branches
 Route::apiResource('branches', BranchController::class);
 Route::get('/branch-directory', [BranchController::class, 'directory']);

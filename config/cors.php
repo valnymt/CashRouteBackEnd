@@ -28,7 +28,9 @@ return [
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    // Browser remembers the CORS "permission check" (preflight) for 2 hours instead of
+    // sending an extra request before every save.
+    'max_age' => 7200,
 
     // Required so the browser sends the login cookie with API calls.
     'supports_credentials' => true,
