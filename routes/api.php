@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\BranchController;
 
 // Quick check that the API is up: GET /api/health
 Route::get('/health', fn () => response()->json([
@@ -18,3 +19,6 @@ Route::get('/user', function (Request $request) {
 // the routes listed in CashRoute_Admin_Portal/README.md → "Connecting the Laravel backend"
 // (login, me, logout, branches, branch-directory, users, teams, requests, audit-logs,
 // trips, notifications).
+
+
+Route::get('/branches', [BranchController::class, 'index']);
