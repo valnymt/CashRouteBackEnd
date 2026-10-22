@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
-
+use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
 // Quick check that the API is up: GET /api/health
@@ -30,6 +30,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/teams', [TeamController::class, 'index']);
     Route::post('/teams', [TeamController::class, 'store']);
     Route::put('/teams/{id}', [TeamController::class, 'update']);
+    Route::post(
+        '/cash-requests/{cashRequest}/otp',
+        [OtpController::class, 'generate']
+    );
+    
+    Route::post(
+        '/otps/verify',
+        [OtpController::class, 'verify']
+    );
 });
 
 // CashRoute endpoints go here when the backend is built. The frontend expects
@@ -38,4 +47,3 @@ Route::middleware('auth:sanctum')->group(function () {
 // trips, notifications).
 
 
-Route::get('/branches', [BranchController::class, 'index']);
