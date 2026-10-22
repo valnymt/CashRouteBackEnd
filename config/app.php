@@ -65,7 +65,8 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Myanmar time, same as MySQL's NOW() and the seed data — keeps audit times consistent.
+    'timezone' => 'Asia/Yangon',
 
     /*
     |--------------------------------------------------------------------------
