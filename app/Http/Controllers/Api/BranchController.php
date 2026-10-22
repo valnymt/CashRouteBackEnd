@@ -25,14 +25,17 @@ class BranchController extends Controller
             'lat'              => 'required|numeric',
             'lng'              => 'required|numeric',
             'handover_radius'  => 'required|integer|min:0',
-            'contact_name'     => 'nullable|string',
-            'contact_phone'    => 'nullable|string',
-            'contact_email'    => 'nullable|email',
+            'contact_name'     => 'required|string',
+            'contact_phone'    => 'required|string',
+            'contact_email'    => 'required|email',
             'is_hq'            => 'boolean',
             'is_active'        => 'boolean',
         ]);
 
-        $branch = Branch::create($validated);
+        $branch = Branch::create(array_merge([
+            'is_hq'     => false,
+            'is_active' => true,
+        ], $validated));
 
         return response()->json([
             'success' => true,
@@ -66,9 +69,9 @@ class BranchController extends Controller
             'lat'              => 'sometimes|numeric',
             'lng'              => 'sometimes|numeric',
             'handover_radius'  => 'sometimes|integer|min:0',
-            'contact_name'     => 'nullable|string',
-            'contact_phone'    => 'nullable|string',
-            'contact_email'    => 'nullable|email',
+            'contact_name'     => 'sometimes|string',
+            'contact_phone'    => 'sometimes|string',
+            'contact_email'    => 'sometimes|email',
             'is_hq'            => 'boolean',
             'is_active'        => 'boolean',
         ]);
