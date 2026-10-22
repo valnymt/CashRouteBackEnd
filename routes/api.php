@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\BranchController;
 
 // Quick check that the API is up: GET /api/health
 Route::get('/health', fn () => response()->json([
@@ -14,7 +15,5 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// CashRoute endpoints go here when the backend is built. The frontend expects
-// the routes listed in CashRoute_Admin_Portal/README.md → "Connecting the Laravel backend"
-// (login, me, logout, branches, branch-directory, users, teams, requests, audit-logs,
-// trips, notifications).
+Route::apiResource('branches', BranchController::class);
+Route::get('/branch-directory', [BranchController::class, 'directory']);
