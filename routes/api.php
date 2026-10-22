@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 
+use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\UserController;
 // Quick check that the API is up: GET /api/health
 Route::get('/health', fn () => response()->json([
     'status' => 'ok',
@@ -19,7 +21,13 @@ Route::post('/token', [AuthController::class, 'token']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    // every other module's routes go inside this group too
+    // Users & Teams (feature/users-teams-api)
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::get('/teams', [TeamController::class, 'index']);
+    Route::post('/teams', [TeamController::class, 'store']);
+    Route::put('/teams/{id}', [TeamController::class, 'update']);
 });
 
 // CashRoute endpoints go here when the backend is built. The frontend expects
