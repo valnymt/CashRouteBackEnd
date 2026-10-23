@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashRequestController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
@@ -11,10 +11,11 @@ use App\Http\Controllers\Api\UserController;
 // Quick check that the API is up: GET /api/health
 Route::get('/health', fn () => response()->json([
     'status' => 'ok',
-    'app' => config('app.name'),
-    'time' => now()->toIso8601String(),
+    'app'    => config('app.name'),
+    'time'   => now()->toIso8601String(),
 ]));
 
+// Auth (unauthenticated)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/token', [AuthController::class, 'token']);
 
@@ -29,6 +30,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/teams', [TeamController::class, 'index']);
     Route::post('/teams', [TeamController::class, 'store']);
     Route::put('/teams/{id}', [TeamController::class, 'update']);
+
+    // Branches
+    Route::get('/branch-directory', [BranchController::class, 'directory']);
+    Route::apiResource('branches', BranchController::class);
 
     // Cash Requests
     Route::get('/requests', [CashRequestController::class, 'index']);
