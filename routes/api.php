@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashRequestController;
+use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
@@ -53,4 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/trips', [ReportController::class, 'trips']);
     Route::get('/trips/{id}', [ReportController::class, 'showTrip']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
+
+    // OTP (mobile app — pickup/dropoff handover)
+    Route::post('/cash-requests/{cashRequest}/otp', [OtpController::class, 'generate']);
+    Route::post('/otps/verify', [OtpController::class, 'verify']);
 });
