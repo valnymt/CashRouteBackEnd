@@ -3,84 +3,78 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TripResource;
 use App\Models\CashRequest;
 use App\Models\Trip;
 use Illuminate\Http\Request;
 
+/** Trip history + aggregate numbers used by the Reports page. */
 class ReportController extends Controller
 {
+    /** GET /api/trips — list of completed/cancelled trips (portal filters client-side). */
     public function trips(Request $request)
     {
-        $query = Trip::with(['cashRequest.branch', 'team'])
-            ->orderBy('created_at', 'desc');
+        $q = Trip::with(['cashRequest.branch', 'team'])->orderByDesc('created_at');
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $q->where('status', $request->status);
         }
         if ($request->filled('team_id')) {
-            $query->where('team_id', $request->team_id);
+            $q->where('team_id', $request->team_id);
         }
         if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $q->whereDate('created_at', '>=', $request->date_from);
         }
         if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $q->whereDate('created_at', '<=', $request->date_to);
         }
         if ($request->filled('branch_id')) {
-            $query->whereHas('cashRequest', fn($q) => $q->where('branch_id', $request->branch_id));
+            $q->whereHas('cashRequest', fn ($cr) => $cr->where('branch_id', $request->branch_id));
         }
 
-        return response()->json([
-            'success' => true,
-            'data'    => $query->paginate(20),
-        ]);
+        return TripResource::collection($q->get());
     }
 
-    public function showTrip(string $id)
+    /** GET /api/trips/{reference} — detail by request reference. */
+    public function showTrip(string $reference)
     {
-        $trip = Trip::with(['cashRequest.branch', 'team', 'locations'])->find($id);
+        $trip = Trip::with(['cashRequest.branch', 'team', 'locations'])
+            ->whereHas('cashRequest', fn ($cr) => $cr->where('reference', $reference))
+            ->firstOrFail();
 
-        if (!$trip) {
-            return response()->json(['success' => false, 'message' => 'Trip not found'], 404);
-        }
-
-        return response()->json(['success' => true, 'data' => $trip]);
+        return new TripResource($trip);
     }
 
+    /** GET /api/reports/summary — totals and status breakdown. */
     public function summary(Request $request)
     {
-        $query = CashRequest::query();
+        $q = CashRequest::query();
 
         if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $q->whereDate('created_at', '>=', $request->date_from);
         }
         if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $q->whereDate('created_at', '<=', $request->date_to);
         }
         if ($request->filled('branch_id')) {
-            $query->where('branch_id', $request->branch_id);
+            $q->where('branch_id', $request->branch_id);
         }
         if ($request->filled('type')) {
-            $query->where('type', $request->type);
+            $q->where('type', $request->type);
         }
 
-        $total      = (clone $query)->count();
-        $pending    = (clone $query)->where('status', 'pending')->count();
-        $approved   = (clone $query)->where('status', 'approved')->count();
-        $rejected   = (clone $query)->where('status', 'rejected')->count();
-        $assigned   = (clone $query)->where('status', 'assigned')->count();
-        $inTransit  = (clone $query)->where('status', 'in_transit')->count();
-        $delivered  = (clone $query)->where('status', 'delivered')->count();
-        $cancelled  = (clone $query)->where('status', 'cancelled')->count();
-        $totalAmount = (clone $query)->sum('amount');
-
-        return response()->json([
-            'success' => true,
-            'data'    => [
-                'total'        => $total,
-                'total_amount' => $totalAmount,
-                'by_status'    => compact('pending', 'approved', 'rejected', 'assigned', 'inTransit', 'delivered', 'cancelled'),
+        return [
+            'total'       => (clone $q)->count(),
+            'totalAmount' => (float) (clone $q)->sum('amount'),
+            'byStatus' => [
+                'pending'   => (clone $q)->where('status', 'pending')->count(),
+                'approved'  => (clone $q)->where('status', 'approved')->count(),
+                'rejected'  => (clone $q)->where('status', 'rejected')->count(),
+                'assigned'  => (clone $q)->where('status', 'assigned')->count(),
+                'inTransit' => (clone $q)->where('status', 'in_transit')->count(),
+                'completed' => (clone $q)->where('status', 'completed')->count(),
+                'cancelled' => (clone $q)->where('status', 'cancelled')->count(),
             ],
-        ]);
+        ];
     }
 }

@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashRequestController;
@@ -35,24 +34,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Branches
     Route::get('/branch-directory', [BranchController::class, 'directory']);
-    Route::apiResource('branches', BranchController::class);
+    Route::get('/branches', [BranchController::class, 'index']);
+    Route::post('/branches', [BranchController::class, 'store']);
+    Route::get('/branches/{code}', [BranchController::class, 'show']);
+    Route::put('/branches/{code}', [BranchController::class, 'update']);
+    Route::delete('/branches/{code}', [BranchController::class, 'destroy']);
 
-    // Cash Requests
+    // Cash Requests (list, create, edit, cancel, approve, reject, assign)
     Route::get('/requests', [CashRequestController::class, 'index']);
     Route::post('/requests', [CashRequestController::class, 'store']);
-    Route::get('/requests/{id}', [CashRequestController::class, 'show']);
-    Route::put('/requests/{id}', [CashRequestController::class, 'update']);
-    Route::post('/requests/{id}/cancel', [CashRequestController::class, 'cancel']);
-
-    // Approvals
-    Route::post('/requests/{id}/approve', [ApprovalController::class, 'approve']);
-    Route::post('/requests/{id}/reject',  [ApprovalController::class, 'reject']);
-    Route::post('/requests/{id}/assign',  [ApprovalController::class, 'assign']);
-    Route::post('/requests/{id}/cancel-approved', [ApprovalController::class, 'cancelApproved']);
+    Route::get('/requests/{reference}', [CashRequestController::class, 'show']);
+    Route::put('/requests/{reference}', [CashRequestController::class, 'update']);
+    Route::post('/requests/{reference}/cancel',  [CashRequestController::class, 'cancel']);
+    Route::post('/requests/{reference}/approve', [CashRequestController::class, 'approve']);
+    Route::post('/requests/{reference}/reject',  [CashRequestController::class, 'reject']);
+    Route::post('/requests/{reference}/assign',  [CashRequestController::class, 'assign']);
 
     // Reports & Trips
     Route::get('/trips', [ReportController::class, 'trips']);
-    Route::get('/trips/{id}', [ReportController::class, 'showTrip']);
+    Route::get('/trips/{reference}', [ReportController::class, 'showTrip']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
 
     // OTP (mobile app — pickup/dropoff handover)
