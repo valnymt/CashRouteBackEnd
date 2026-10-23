@@ -1,9 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashRequestController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TeamController;
@@ -22,6 +24,7 @@ Route::post('/token', [AuthController::class, 'token']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/me/password', [AuthController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Users & Teams
@@ -58,4 +61,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // OTP (mobile app — pickup/dropoff handover)
     Route::post('/cash-requests/{cashRequest}/otp', [OtpController::class, 'generate']);
     Route::post('/otps/verify', [OtpController::class, 'verify']);
+
+    // Audit Trail (AP-09)
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
+    // Notifications bell
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
 });
