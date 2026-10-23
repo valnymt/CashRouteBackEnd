@@ -49,6 +49,37 @@ class AuthController extends Controller
         return new UserResource($request->user());
     }
 
+    /**
+     * POST /api/me/password — the signed-in user replaces their own password.
+     * Clears must_change_password so the "default password" banner goes away.
+     */
+    public function changePassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password'         => ['required', 'string', 'min:8', 'different:current_password'],
+        ], [
+            'password.different' => 'Choose a password different from the current one.',
+            'password.min'       => 'New password must be at least 8 characters.',
+        ]);
+
+        $user = $request->user();
+        if (! Hash::check($data['current_password'], $user->password)) {
+            return response()->json([
+                'message' => 'Current password is incorrect.',
+                'errors'  => ['current_password' => ['Current password is incorrect.']],
+            ], 422);
+        }
+
+        $user->update([
+            'password' => $data['password'],   // auto-hashed by the User cast
+            'must_change_password' => false,
+        ]);
+        Audit::log('password.change');
+
+        return response()->noContent();
+    }
+
     public function logout(Request $request)
     {
         Audit::log('logout');
