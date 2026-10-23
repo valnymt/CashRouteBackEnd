@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashRequestController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
 
@@ -47,4 +48,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/requests/{id}/reject',  [ApprovalController::class, 'reject']);
     Route::post('/requests/{id}/assign',  [ApprovalController::class, 'assign']);
     Route::post('/requests/{id}/cancel-approved', [ApprovalController::class, 'cancelApproved']);
+
+    // Reports & Trips
+    Route::get('/trips', [ReportController::class, 'trips']);
+    Route::get('/trips/{id}', [ReportController::class, 'showTrip']);
+    Route::get('/reports/summary', [ReportController::class, 'summary']);
 });
