@@ -11,10 +11,12 @@ use Illuminate\Http\Request;
 /** Trip history + aggregate numbers used by the Reports page. */
 class ReportController extends Controller
 {
-    /** GET /api/trips — list of completed/cancelled trips (portal filters client-side). */
+    /** GET /api/trips — Trip History: only finished runs with a real start→end to measure. */
     public function trips(Request $request)
     {
-        $q = Trip::with(['cashRequest.branch', 'team'])->orderByDesc('created_at');
+        $q = Trip::with(['cashRequest.branch', 'team'])
+            ->whereNotNull('completed_at')
+            ->orderByDesc('created_at');
 
         if ($request->filled('status')) {
             $q->where('status', $request->status);
