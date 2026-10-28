@@ -26,6 +26,21 @@ class BranchController extends Controller
         $data = $this->validated($request);
 
         $branch = Branch::create($this->toDb($data) + ['is_active' => $data['active'] ?? true]);
+
+        // Keep branch_directory in sync — a brand-new branch (code not in the
+        // bank's catalog yet) is backfilled there so it shows up as a known
+        // branch everywhere else, and the Add Branch picker never offers it
+        // again as "available to register".
+        BranchDirectory::firstOrCreate(
+            ['code' => $data['code']],
+            [
+                'name'    => $data['name'],
+                'address' => $data['address'],
+                'lat'     => $data['lat'],
+                'lng'     => $data['lng'],
+            ],
+        );
+
         Audit::log('branch.create', null, ['branch' => $branch->code]);
 
         return (new BranchResource($branch))->response()->setStatusCode(201);
