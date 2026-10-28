@@ -22,7 +22,8 @@ class TripResource extends JsonResource
             'teamId' => (string) $this->team_id,
             'amount' => (float) ($cr?->amount ?? 0),
             'currency' => $cr?->currency ?? 'MMK',
-            'durationMin' => ($started && $completed) ? max(0, $completed->diffInMinutes($started)) : 0,
+            // Carbon 3's diffInMinutes is signed by direction, so abs() to get the elapsed minutes.
+            'durationMin' => ($started && $completed) ? (int) abs($started->diffInMinutes($completed)) : 0,
             'onTime' => (bool) ($this->is_on_time ?? false),
         ];
     }
