@@ -8,10 +8,12 @@ use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds 14 completed trips spread across the past ~2 weeks so Reports and
- * Trip History have presentable, varied data. Idempotent — re-runs skip
- * references that already exist.
+ * Seeds completed trips spread across the past 2 business weeks so Reports
+ * and Trip History have presentable, varied data. Only weekday dates are
+ * used — the bank is closed on Saturday and Sunday, so no trips exist for
+ * those days.
  *
+ * Idempotent on reference — re-running skips rows that already exist.
  * Run with: php artisan db:seed --class=TripHistorySeeder
  */
 class TripHistorySeeder extends Seeder
@@ -19,21 +21,26 @@ class TripHistorySeeder extends Seeder
     public function run(): void
     {
         // [daysAgo, hour, type, branch_id, amount, team_id, durationMin, onTime]
+        // All daysAgo values resolve to Mon–Fri (never Sat/Sun). Several rows
+        // land in the current week so the "On-time vs late" per-day chart has
+        // real data to render for today and the past few business days.
         $rows = [
-            [13, 9,  'deposit',    1, 180000, 1, 55,  true],
-            [13, 14, 'withdrawal', 3, 240000, 2, 70,  true],
-            [12, 10, 'deposit',    2, 320000, 1, 62,  true],
-            [12, 15, 'withdrawal', 5, 150000, 3, 95,  false],
-            [11, 11, 'deposit',    4, 410000, 2, 48,  true],
-            [10, 9,  'withdrawal', 1, 280000, 3, 73,  true],
-            [9,  13, 'deposit',    3, 350000, 1, 110, false],
-            [8,  10, 'withdrawal', 2, 190000, 2, 58,  true],
-            [7,  14, 'deposit',    5, 460000, 3, 82,  true],
-            [6,  11, 'withdrawal', 4, 220000, 1, 44,  true],
-            [5,  9,  'deposit',    1, 300000, 2, 128, false],
-            [4,  15, 'withdrawal', 3, 175000, 3, 51,  true],
-            [3,  10, 'deposit',    2, 390000, 1, 68,  true],
-            [2,  13, 'withdrawal', 5, 260000, 2, 90,  true],
+            // ---- previous week ----
+            [13, 9,  'deposit',    1, 180000, 1, 55,  true],   // Thu
+            [12, 14, 'withdrawal', 3, 240000, 2, 70,  true],   // Fri
+            [9,  10, 'deposit',    2, 320000, 1, 62,  true],   // Mon
+            [8,  15, 'withdrawal', 5, 150000, 3, 95,  false],  // Tue
+            [7,  11, 'deposit',    4, 410000, 2, 48,  true],   // Wed
+            [6,  9,  'withdrawal', 1, 280000, 3, 73,  true],   // Thu
+            [5,  13, 'deposit',    3, 350000, 1, 110, false],  // Fri
+            // ---- current week ----
+            [2,  10, 'withdrawal', 2, 190000, 2, 58,  true],   // Mon
+            [2,  14, 'deposit',    5, 460000, 3, 82,  true],   // Mon
+            [1,  11, 'withdrawal', 4, 220000, 1, 44,  true],   // Tue
+            [1,  13, 'deposit',    1, 300000, 2, 128, false],  // Tue
+            [1,  15, 'withdrawal', 3, 175000, 3, 51,  true],   // Tue
+            [0,  10, 'deposit',    2, 390000, 1, 68,  true],   // Wed (today)
+            [0,  14, 'withdrawal', 5, 260000, 2, 90,  true],   // Wed (today)
         ];
 
         $startRef = 1049;
@@ -44,7 +51,12 @@ class TripHistorySeeder extends Seeder
                 continue;
             }
 
-            $start      = Carbon::now()->setTimezone('Asia/Yangon')->subDays($daysAgo)->setTime($hour, 0, 0);
+            $start = Carbon::now()->setTimezone('Asia/Yangon')->subDays($daysAgo)->setTime($hour, 0, 0);
+            // Belt-and-braces guard: if the clock has drifted into a weekend
+            // date, nudge forward to the next Monday so the invariant holds.
+            while (in_array($start->dayOfWeekIso, [6, 7], true)) {
+                $start->addDay();
+            }
             $end        = (clone $start)->addMinutes($dur);
             $createdAt  = (clone $start)->subMinutes(90);
             $approvedAt = (clone $start)->subMinutes(70);
@@ -82,7 +94,7 @@ class TripHistorySeeder extends Seeder
                 'updated_at'      => $end,
             ]);
 
-            $this->command?->line("added $ref ($type, branch $branchId, team $teamId, {$dur}min)");
+            $this->command?->line("added $ref ({$start->format('D d M')}, $type, branch $branchId, team $teamId, {$dur}min)");
         }
     }
 }
