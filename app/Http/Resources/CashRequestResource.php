@@ -86,7 +86,11 @@ class CashRequestResource extends JsonResource
             $teamLabel = $team ? "$team assigned" : 'Team assigned';
             $add($this->trip->assigned_at?->toIso8601String(), $teamLabel, $approver);
             $add($this->trip->accepted_at?->toIso8601String(), 'Team accepted', $team ?? '—');
-            $add($this->trip->started_at?->toIso8601String(), 'In transit', $team ?? '—');
+            // "In transit" is implicit once the trip is Delivered — only show it
+            // while the trip is still on the road.
+            if (!$this->trip->completed_at) {
+                $add($this->trip->started_at?->toIso8601String(), 'In transit', $team ?? '—');
+            }
             $add($this->trip->completed_at?->toIso8601String(), 'Delivered', $team ?? '—');
         } else {
             $add($this->completed_at?->toIso8601String(), 'Delivered', $maker);
