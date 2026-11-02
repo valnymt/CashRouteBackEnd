@@ -45,17 +45,56 @@ class CashRequestResource extends JsonResource
     /**
      * The timeline the portal shows is built from audit_logs — see the DB design
      * doc ("the request timeline shown in the UI is built from audit_logs, so
-     * no extra table is needed").
+     * no extra table is needed"). For older/seeded requests that have no audit
+     * trail, fall back to the lifecycle timestamps on the request + trip so
+     * the detail page is never blank.
      */
     private function buildTimeline(): array
     {
-        return $this->auditLogs->map(function ($log) {
-            return [
-                'label' => $this->labelFor($log),
-                'by' => $log->user?->name ?? '—',
-                'at' => $log->created_at?->toIso8601String(),
-            ];
-        })->values()->all();
+        if ($this->auditLogs->isNotEmpty()) {
+            return $this->auditLogs->map(function ($log) {
+                return [
+                    'label' => $this->labelFor($log),
+                    'by' => $log->user?->name ?? '—',
+                    'at' => $log->created_at?->toIso8601String(),
+                ];
+            })->values()->all();
+        }
+
+        return $this->syntheticTimeline();
+    }
+
+    /** Build a plausible timeline from the stored timestamps when audit_logs is empty. */
+    private function syntheticTimeline(): array
+    {
+        $items = [];
+        $maker    = $this->creator?->name ?? '—';
+        $approver = $this->approver?->name ?? '—';
+        $team     = $this->trip?->team?->name;
+
+        $add = function (?string $at, string $label, string $by) use (&$items) {
+            if (!$at) return;
+            $items[] = ['label' => $label, 'by' => $by, 'at' => $at];
+        };
+
+        $add($this->created_at?->toIso8601String(), 'Created', $maker);
+        $add($this->approved_at?->toIso8601String(), 'Approved', $approver);
+        $add($this->rejected_at?->toIso8601String(), 'Rejected' . ($this->reject_reason ? ' — ' . $this->reject_reason : ''), $approver);
+        $add($this->cancelled_at?->toIso8601String(), 'Cancelled' . ($this->cancel_reason ? ' — ' . $this->cancel_reason : ''), $this->cancelled_by_role === 'checker' ? $approver : $maker);
+
+        if ($this->trip) {
+            $teamLabel = $team ? "$team assigned" : 'Team assigned';
+            $add($this->trip->assigned_at?->toIso8601String(), $teamLabel, $approver);
+            $add($this->trip->accepted_at?->toIso8601String(), 'Team accepted', $team ?? '—');
+            $add($this->trip->started_at?->toIso8601String(), 'In transit', $team ?? '—');
+            $add($this->trip->completed_at?->toIso8601String(), 'Delivered', $team ?? '—');
+        } else {
+            $add($this->completed_at?->toIso8601String(), 'Delivered', $maker);
+        }
+
+        // Chronological, then de-dupe entries sharing a label.
+        usort($items, fn ($a, $b) => strcmp($a['at'], $b['at']));
+        return $items;
     }
 
     private function labelFor($log): string
