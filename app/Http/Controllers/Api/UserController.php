@@ -104,7 +104,16 @@ class UserController extends Controller
             'status' => ['nullable', Rule::in(['Active', 'Locked'])],
             'branchId' => ['nullable', Rule::exists('branches', 'code')],
             'username' => ['nullable', 'string', 'max:60'],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'min:8'],
+            // 'password' => [$user ? 'nullable' : 'required', 'string', 'min:8'],
+            'password' => [
+                $user ? 'nullable' : 'required',
+                'string',
+                'min:8',
+                'regex:/[A-Z]/',
+                'regex:/[a-z]/',
+                'regex:/[0-9]/',
+                'regex:/[^A-Za-z0-9]/',
+            ],
         ]);
     }
 
