@@ -206,54 +206,91 @@ class CashRequestController extends Controller
 
     /**
      * POST /api/requests/{reference}/assign  { team_id }
-     * Checker, Approved only, team must be confirmed and available.
+     * Checker only. First-time assign on an Approved request, OR reassign on
+     * an Assigned request whose driver hasn't accepted the push yet.
      */
     public function assign(Request $request, string $reference)
     {
         $r = $this->find($reference);
         $me = $request->user();
         abort_unless($me->hasPermission('requests.assign'), 403, 'You are not allowed to assign teams.');
-        abort_if($r->status !== 'approved', 409, 'Only approved requests can be assigned.');
+
+        $reassigning = $r->status === 'assigned';
+        if (!in_array($r->status, ['approved', 'assigned'], true)) {
+            abort(409, "{$r->reference} can't be assigned in state {$r->status}.");
+        }
+        // Can't reassign once the driver has accepted — the trip is already on the road.
+        if ($reassigning && $r->trip?->accepted_at) {
+            abort(409, "{$r->reference} has already been accepted by the delivery team. Cancel it instead.");
+        }
 
         $data = $request->validate([
             'team_id' => ['required', Rule::exists('teams', 'id')],
         ]);
         $team = Team::findOrFail($data['team_id']);
+
+        // Picking the same team is a no-op; call it out explicitly.
+        if ($reassigning && $r->trip?->team_id === $team->id) {
+            abort(409, "{$team->name} is already assigned to {$r->reference}.");
+        }
         abort_if($team->status !== 'available', 409, "{$team->name} is on a trip.");
         abort_unless($team->is_confirmed, 409, "{$team->name} isn't confirmed yet. Confirm it in Delivery Teams first.");
 
-        DB::transaction(function () use ($r, $team, $me) {
-            Trip::create([
-                'cash_request_id' => $r->id,
-                'team_id' => $team->id,
-                'assigned_by' => $me->id,
-                'status' => 'assigned',
-                'assigned_at' => now(),
-            ]);
-            $r->update(['status' => 'assigned']);
-            $team->update(['status' => 'on_trip']);
+        DB::transaction(function () use ($r, $team, $me, $reassigning) {
+            if ($reassigning && $r->trip) {
+                $oldTeam = Team::find($r->trip->team_id);
+                $oldTeamName = $oldTeam?->name ?? 'previous team';
+                // Retire the old trip and free the old team.
+                $r->trip->update(['status' => 'cancelled']);
+                $oldTeam?->update(['status' => 'available']);
 
-            Audit::log('assign', $r, ['team' => $team->name]);
+                Trip::create([
+                    'cash_request_id' => $r->id,
+                    'team_id' => $team->id,
+                    'assigned_by' => $me->id,
+                    'status' => 'assigned',
+                    'assigned_at' => now(),
+                ]);
+                $team->update(['status' => 'on_trip']);
 
-            // Ping every member of the assigned delivery team.
+                Audit::log('reassign', $r, ['from' => $oldTeamName, 'to' => $team->name]);
+                $this->notifyMaker(
+                    $r,
+                    'request.reassigned',
+                    "{$team->name} assigned (reassigned)",
+                    "{$r->reference} was reassigned from {$oldTeamName} to {$team->name}.",
+                );
+            } else {
+                Trip::create([
+                    'cash_request_id' => $r->id,
+                    'team_id' => $team->id,
+                    'assigned_by' => $me->id,
+                    'status' => 'assigned',
+                    'assigned_at' => now(),
+                ]);
+                $r->update(['status' => 'assigned']);
+                $team->update(['status' => 'on_trip']);
+
+                Audit::log('assign', $r, ['team' => $team->name]);
+                $this->notifyMaker(
+                    $r,
+                    'request.assigned',
+                    "{$team->name} assigned",
+                    "{$team->name} picked up {$r->reference}.",
+                );
+            }
+
+            // Ping every member of the newly-assigned team.
             foreach ($team->members as $member) {
                 UserNotification::create([
                     'user_id' => $member->id,
                     'cash_request_id' => $r->id,
-                    'type' => 'team.assigned',
-                    'title' => "New delivery · {$r->reference}",
+                    'type' => $reassigning ? 'team.reassigned' : 'team.assigned',
+                    'title' => $reassigning ? "New delivery · {$r->reference}" : "New delivery · {$r->reference}",
                     'body' => "You've been assigned to {$r->reference}.",
                     'link' => "/approvals/{$r->reference}",
                 ]);
             }
-
-            // Also let the Maker know their request is on the road.
-            $this->notifyMaker(
-                $r,
-                'request.assigned',
-                "{$team->name} assigned",
-                "{$team->name} picked up {$r->reference}.",
-            );
         });
 
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));

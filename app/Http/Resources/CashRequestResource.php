@@ -35,6 +35,9 @@ class CashRequestResource extends JsonResource
             'createdAt' => $this->created_at?->toIso8601String(),
             'status' => self::STATUS[$this->status] ?? ucfirst($this->status),
             'teamId' => $this->trip ? (string) $this->trip->team_id : null,
+            // True while a Checker can still reassign — status is Assigned but
+            // the driver hasn't accepted the push yet.
+            'canReassign' => $this->status === 'assigned' && !$this->trip?->accepted_at,
             'rejectReason' => $this->reject_reason,
             'cancelReason' => $this->cancel_reason,
             'cancelledBy' => $this->cancelled_by_role ? ucfirst($this->cancelled_by_role) : null,
@@ -111,6 +114,7 @@ class CashRequestResource extends JsonResource
             'approve' => 'Approved',
             'reject' => 'Rejected — ' . ($details['reason'] ?? ''),
             'assign' => ($details['team'] ?? 'Team') . ' assigned',
+            'reassign' => 'Reassigned from ' . ($details['from'] ?? 'previous team') . ' to ' . ($details['to'] ?? 'new team'),
             'cancel' => ($details['by'] ?? 'maker') === 'checker'
                 ? 'Cancelled by Checker' . (isset($details['reason']) ? ' — ' . $details['reason'] : '')
                 : 'Cancelled by Maker' . (isset($details['reason']) ? ' — ' . $details['reason'] : ''),
