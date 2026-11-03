@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\CashRequest;
 use App\Models\Team;
 use App\Models\Trip;
+use App\Models\User;
 use App\Models\UserNotification;
 use App\Support\Audit;
 use App\Support\CompletionWindow;
@@ -62,6 +63,9 @@ class CashRequestController extends Controller
                 'created_by' => $me->id,
             ]);
             Audit::log('create', $r);
+
+            // Ping every Checker (except the creator) that there's something to review.
+            $this->notifyCheckers($r, $me, 'request.new', 'New request to review', "{$r->reference} needs your approval.");
 
             return $r;
         });
@@ -140,6 +144,17 @@ class CashRequestController extends Controller
                 'by' => $byChecker ? 'checker' : 'maker',
                 'reason' => $reason ?: null,
             ]));
+
+            // When the Checker cancels an approved/assigned request the Maker
+            // needs to know their trip went away.
+            if ($byChecker) {
+                $this->notifyMaker(
+                    $r,
+                    'request.cancelled',
+                    'Request cancelled by Checker',
+                    "{$r->reference} was cancelled" . ($reason ? " — {$reason}" : '.'),
+                );
+            }
         });
 
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));
@@ -156,6 +171,7 @@ class CashRequestController extends Controller
 
         $r->update(['status' => 'approved', 'approved_by' => $me->id, 'approved_at' => now()]);
         Audit::log('approve', $r);
+        $this->notifyMaker($r, 'request.approved', 'Request approved', "{$r->reference} was approved by {$me->name}.");
 
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));
     }
@@ -183,6 +199,7 @@ class CashRequestController extends Controller
             'reject_reason' => $reason,
         ]);
         Audit::log('reject', $r, ['reason' => $reason]);
+        $this->notifyMaker($r, 'request.rejected', 'Request rejected', "{$r->reference} was rejected — {$reason}");
 
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));
     }
@@ -217,14 +234,26 @@ class CashRequestController extends Controller
             $team->update(['status' => 'on_trip']);
 
             Audit::log('assign', $r, ['team' => $team->name]);
-            UserNotification::create([
-                'user_id' => $team->members()->first()?->id ?? $me->id,
-                'cash_request_id' => $r->id,
-                'type' => 'team.assigned',
-                'title' => "{$team->name} notified",
-                'body' => "Push sent for {$r->reference}",
-                'link' => "/approvals/{$r->reference}",
-            ]);
+
+            // Ping every member of the assigned delivery team.
+            foreach ($team->members as $member) {
+                UserNotification::create([
+                    'user_id' => $member->id,
+                    'cash_request_id' => $r->id,
+                    'type' => 'team.assigned',
+                    'title' => "New delivery · {$r->reference}",
+                    'body' => "You've been assigned to {$r->reference}.",
+                    'link' => "/approvals/{$r->reference}",
+                ]);
+            }
+
+            // Also let the Maker know their request is on the road.
+            $this->notifyMaker(
+                $r,
+                'request.assigned',
+                "{$team->name} assigned",
+                "{$team->name} picked up {$r->reference}.",
+            );
         });
 
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));
@@ -253,6 +282,41 @@ class CashRequestController extends Controller
     {
         if ($r->created_by === $me->id) {
             abort(403, "Maker-Checker rule: you cannot {$what} a request you created.");
+        }
+    }
+
+    /** Notify the Maker who created this request. No-op when creator was deleted. */
+    private function notifyMaker(CashRequest $r, string $type, string $title, string $body): void
+    {
+        if (!$r->created_by) return;
+
+        UserNotification::create([
+            'user_id' => $r->created_by,
+            'cash_request_id' => $r->id,
+            'type' => $type,
+            'title' => $title,
+            'body' => $body,
+            'link' => "/requests/{$r->reference}",
+        ]);
+    }
+
+    /** Notify every user who can approve requests (minus `$except`, usually the author). */
+    private function notifyCheckers(CashRequest $r, $except, string $type, string $title, string $body): void
+    {
+        $checkerIds = User::whereHas('role.permissions', fn ($q) => $q->where('code', 'requests.approve'))
+            ->where('is_active', true)
+            ->when($except, fn ($q) => $q->where('id', '!=', $except->id))
+            ->pluck('id');
+
+        foreach ($checkerIds as $uid) {
+            UserNotification::create([
+                'user_id' => $uid,
+                'cash_request_id' => $r->id,
+                'type' => $type,
+                'title' => $title,
+                'body' => $body,
+                'link' => "/approvals/{$r->reference}",
+            ]);
         }
     }
 
