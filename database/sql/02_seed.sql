@@ -5,6 +5,11 @@
 --
 -- Every demo account's password is:  password
 -- (stored as a bcrypt hash; Laravel's Hash::check() accepts it).
+--
+-- Users:
+--   U-001..U-016  original demo users (Myanmar names; admin login = admin.maker)
+--   U-101..U-120  HQ drivers (10) and custodians (10)
+--   U-201..U-252  extra Maker / Checker / Driver / Custodian per branch
 -- =====================================================================
 USE cashroute;
 SET NAMES utf8mb4;
@@ -106,7 +111,8 @@ INSERT INTO branch_directory (code, name, address, lat, lng, created_at, updated
   ('HQ-001', 'HQ Cash Centre',        'Pansodan St, Kyauktada, Yangon',         16.7752000, 96.1652000, @now, @now);
 
 -- ---------------------------------------------------------------------
--- Users (same IDs / names / roles as the portal demo)
+-- Users, part 1: original demo users (same IDs / roles as the portal demo,
+-- Myanmar names). U-003 signs in as admin.maker.
 -- ---------------------------------------------------------------------
 INSERT INTO users (employee_id, name, username, email, phone, password, must_change_password, role_id, branch_id, is_delivery_member, is_locked, created_at, updated_at)
 SELECT u.employee_id, u.name, u.username, u.email, u.phone, @pw, FALSE,
@@ -114,25 +120,136 @@ SELECT u.employee_id, u.name, u.username, u.email, u.phone, @pw, FALSE,
        (SELECT id FROM branches WHERE code = u.branch_code),
        u.role IN ('Driver','Custodian'), u.is_locked, @now, @now
 FROM (
-  SELECT 'U-001' employee_id, 'Amy Tan' name,    'amy.tan' username,     'amy.tan@cashroute.com' email,     '+95 9 4137531' phone, 'Maker' role,       'BR-001' branch_code, FALSE is_locked UNION ALL
-  SELECT 'U-002', 'Priya Nair', 'priya.nair',  'priya.nair@cashroute.com',  '+95 9 4275062', 'Maker',       'HQ-001', FALSE UNION ALL
-  SELECT 'U-003', 'Admin User', 'admin.maker', 'admin.user@cashroute.com',  '+95 9 4412593', 'Super Admin', 'HQ-001', FALSE UNION ALL
-  SELECT 'U-004', 'Raj Kumar',  'raj.kumar',   'raj.kumar@cashroute.com',   '+95 9 4550124', 'Driver',      'BR-001', FALSE UNION ALL
-  SELECT 'U-005', 'Lena Ho',    'lena.ho',     'lena.ho@cashroute.com',     '+95 9 4687655', 'Custodian',   'BR-001', FALSE UNION ALL
-  SELECT 'U-006', 'Sam Yeo',    'sam.yeo',     'sam.yeo@cashroute.com',     '+95 9 4825186', 'Custodian',   'BR-001', TRUE  UNION ALL
-  SELECT 'U-007', 'Tom Chew',   'tom.chew',    'tom.chew@cashroute.com',    '+95 9 4962717', 'Custodian',   'BR-001', FALSE UNION ALL
-  SELECT 'U-008', 'Ali Rahim',  'ali.rahim',   'ali.rahim@cashroute.com',   '+95 9 5100248', 'Driver',      'BR-002', FALSE UNION ALL
-  SELECT 'U-009', 'Grace Lim',  'grace.lim',   'grace.lim@cashroute.com',   '+95 9 5237779', 'Custodian',   'BR-002', FALSE UNION ALL
-  SELECT 'U-010', 'Ken Ong',    'ken.ong',     'ken.ong@cashroute.com',     '+95 9 5375310', 'Custodian',   'BR-002', FALSE UNION ALL
-  SELECT 'U-011', 'Vik Shah',   'vik.shah',    'vik.shah@cashroute.com',    '+95 9 5512841', 'Driver',      'BR-003', FALSE UNION ALL
-  SELECT 'U-012', 'Mei Ling',   'mei.ling',    'mei.ling@cashroute.com',    '+95 9 5650372', 'Custodian',   'BR-003', FALSE UNION ALL
-  SELECT 'U-013', 'Joe Tan',    'joe.tan',     'joe.tan@cashroute.com',     '+95 9 5787903', 'Custodian',   'BR-003', FALSE UNION ALL
-  SELECT 'U-014', 'Dina Wu',    'dina.wu',     'dina.wu@cashroute.com',     '+95 9 5925434', 'Driver',      'BR-005', FALSE UNION ALL
-  SELECT 'U-015', 'Hari Raj',   'hari.raj',    'hari.raj@cashroute.com',    '+95 9 6062965', 'Custodian',   'BR-005', FALSE UNION ALL
-  SELECT 'U-016', 'Daniel Lim', 'daniel.lim',  'daniel.lim@cashroute.com',  '+95 9 6200496', 'Checker',     'BR-002', FALSE
+  SELECT 'U-001' employee_id, 'Khin Thandar Oo' name,  'khin.thandaroo' username, 'khin.thandaroo@cashroute.com' email, '+95 9 4137531' phone, 'Maker' role,       'BR-001' branch_code, FALSE is_locked UNION ALL
+  SELECT 'U-002', 'Moe Moe Aye',     'moe.moeaye',     'moe.moeaye@cashroute.com',     '+95 9 4275062', 'Maker',       'HQ-001', FALSE UNION ALL
+  SELECT 'U-003', 'Thein Zaw Win',   'admin.maker',    'admin.maker@cashroute.com',    '+95 9 4412593', 'Super Admin', 'HQ-001', FALSE UNION ALL
+  SELECT 'U-004', 'Kyaw Soe Win',    'kyaw.soewin',    'kyaw.soewin@cashroute.com',    '+95 9 4550124', 'Driver',      'BR-001', FALSE UNION ALL
+  SELECT 'U-005', 'Hla Hla Win',     'hla.hlawin',     'hla.hlawin@cashroute.com',     '+95 9 4687655', 'Custodian',   'BR-001', FALSE UNION ALL
+  SELECT 'U-006', 'Zin Min Latt',    'zin.minlatt',    'zin.minlatt@cashroute.com',    '+95 9 4825186', 'Custodian',   'BR-001', TRUE  UNION ALL
+  SELECT 'U-007', 'Pyae Phyo Maung', 'pyae.phyomaung', 'pyae.phyomaung@cashroute.com', '+95 9 4962717', 'Custodian',   'BR-001', FALSE UNION ALL
+  SELECT 'U-008', 'Tun Tun Naing',   'tun.tunnaing',   'tun.tunnaing@cashroute.com',   '+95 9 5100248', 'Driver',      'BR-002', FALSE UNION ALL
+  SELECT 'U-009', 'May Thu Zar',     'may.thuzar',     'may.thuzar@cashroute.com',     '+95 9 5237779', 'Custodian',   'BR-002', FALSE UNION ALL
+  SELECT 'U-010', 'Arkar Min',       'arkar.min',      'arkar.min@cashroute.com',      '+95 9 5375310', 'Custodian',   'BR-002', FALSE UNION ALL
+  SELECT 'U-011', 'Than Htike Oo',   'than.htikeoo',   'than.htikeoo@cashroute.com',   '+95 9 5512841', 'Driver',      'BR-003', FALSE UNION ALL
+  SELECT 'U-012', 'Phyu Phyu Thin',  'phyu.phyuthin',  'phyu.phyuthin@cashroute.com',  '+95 9 5650372', 'Custodian',   'BR-003', FALSE UNION ALL
+  SELECT 'U-013', 'Lin Htet Aung',   'lin.htetaung',   'lin.htetaung@cashroute.com',   '+95 9 5787903', 'Custodian',   'BR-003', FALSE UNION ALL
+  SELECT 'U-014', 'Yadanar Soe',     'yadanar.soe',    'yadanar.soe@cashroute.com',    '+95 9 5925434', 'Driver',      'BR-005', FALSE UNION ALL
+  SELECT 'U-015', 'Thet Paing Soe',  'thet.paingsoe',  'thet.paingsoe@cashroute.com',  '+95 9 6062965', 'Custodian',   'BR-005', FALSE UNION ALL
+  SELECT 'U-016', 'Kyaw Thura Han',  'kyaw.thurahan',  'kyaw.thurahan@cashroute.com',  '+95 9 6200496', 'Checker',     'BR-002', FALSE
 ) u;
 
 UPDATE users SET locked_at = @now, failed_attempts = 5 WHERE is_locked = TRUE;
+
+-- ---------------------------------------------------------------------
+-- Users, part 2: HQ delivery staff (10 drivers + 10 custodians)
+-- ---------------------------------------------------------------------
+INSERT INTO users (employee_id, name, username, email, phone, password, must_change_password, role_id, branch_id, is_delivery_member, is_active, is_locked, created_at, updated_at)
+SELECT u.employee_id, u.name, u.username, u.email, u.phone, @pw, FALSE,
+       (SELECT id FROM roles WHERE name = u.role),
+       (SELECT id FROM branches WHERE code = 'HQ-001'),
+       TRUE, TRUE, FALSE, @now, @now
+FROM (
+  -- Drivers
+  SELECT 'U-101' employee_id, 'Aung Kyaw Moe' name, 'aung.kyawmoe' username, 'aung.kyawmoe@cashroute.com' email, '+95 9 7810 10101' phone, 'Driver' role UNION ALL
+  SELECT 'U-102', 'Zaw Min Htun',     'zaw.minhtun',     'zaw.minhtun@cashroute.com',     '+95 9 7810 10102', 'Driver' UNION ALL
+  SELECT 'U-103', 'Htet Naing Oo',    'htet.naingoo',    'htet.naingoo@cashroute.com',    '+95 9 7810 10103', 'Driver' UNION ALL
+  SELECT 'U-104', 'Kyaw Zin Lin',     'kyaw.zinlin',     'kyaw.zinlin@cashroute.com',     '+95 9 7810 10104', 'Driver' UNION ALL
+  SELECT 'U-105', 'Min Thu Ya',       'min.thuya',       'min.thuya@cashroute.com',       '+95 9 7810 10105', 'Driver' UNION ALL
+  SELECT 'U-106', 'Thura Soe',        'thura.soe',       'thura.soe@cashroute.com',       '+95 9 7810 10106', 'Driver' UNION ALL
+  SELECT 'U-107', 'Ye Yint Aung',     'ye.yintaung',     'ye.yintaung@cashroute.com',     '+95 9 7810 10107', 'Driver' UNION ALL
+  SELECT 'U-108', 'Nay Lin Tun',      'nay.lintun',      'nay.lintun@cashroute.com',      '+95 9 7810 10108', 'Driver' UNION ALL
+  SELECT 'U-109', 'Sithu Win',        'sithu.win',       'sithu.win@cashroute.com',       '+95 9 7810 10109', 'Driver' UNION ALL
+  SELECT 'U-110', 'Phyo Wai Lin',     'phyo.wailin',     'phyo.wailin@cashroute.com',     '+95 9 7810 10110', 'Driver' UNION ALL
+  -- Custodians
+  SELECT 'U-111', 'Thandar Hlaing',   'thandar.hlaing',  'thandar.hlaing@cashroute.com',  '+95 9 7810 10111', 'Custodian' UNION ALL
+  SELECT 'U-112', 'Su Su Hlaing',     'susu.hlaing',     'susu.hlaing@cashroute.com',     '+95 9 7810 10112', 'Custodian' UNION ALL
+  SELECT 'U-113', 'Khin Myat Noe',    'khin.myatnoe',    'khin.myatnoe@cashroute.com',    '+95 9 7810 10113', 'Custodian' UNION ALL
+  SELECT 'U-114', 'Mya Thida',        'mya.thida',       'mya.thida@cashroute.com',       '+95 9 7810 10114', 'Custodian' UNION ALL
+  SELECT 'U-115', 'Hnin Ei Phyu',     'hnin.eiphyu',     'hnin.eiphyu@cashroute.com',     '+95 9 7810 10115', 'Custodian' UNION ALL
+  SELECT 'U-116', 'Aye Chan Myae',    'aye.chanmyae',    'aye.chanmyae@cashroute.com',    '+95 9 7810 10116', 'Custodian' UNION ALL
+  SELECT 'U-117', 'Wai Yan Phyo',     'wai.yanphyo',     'wai.yanphyo@cashroute.com',     '+95 9 7810 10117', 'Custodian' UNION ALL
+  SELECT 'U-118', 'Kaung Myat Thu',   'kaung.myatthu',   'kaung.myatthu@cashroute.com',   '+95 9 7810 10118', 'Custodian' UNION ALL
+  SELECT 'U-119', 'Ei Mon Thu',       'ei.monthu',       'ei.monthu@cashroute.com',       '+95 9 7810 10119', 'Custodian' UNION ALL
+  SELECT 'U-120', 'Nang Mon Kham',    'nang.monkham',    'nang.monkham@cashroute.com',    '+95 9 7810 10120', 'Custodian'
+) u;
+
+-- ---------------------------------------------------------------------
+-- Users, part 3: extra staff per branch (1 Maker, 1 Checker, 3 Drivers,
+-- 5 Custodians each) + 2 Checkers at HQ
+-- ---------------------------------------------------------------------
+INSERT INTO users
+  (employee_id, name, username, email, phone, password, must_change_password,
+   role_id, branch_id, is_delivery_member, is_active, is_locked, created_at, updated_at)
+SELECT
+  u.employee_id, u.name, u.username,
+  CONCAT(u.username, '@cashroute.com'),
+  CONCAT('+95 9 7820 ', LPAD(SUBSTRING(u.employee_id, 3), 5, '0')),
+  @pw,
+  FALSE,
+  (SELECT id FROM roles WHERE name = u.role),
+  (SELECT id FROM branches WHERE code = u.branch_code),
+  u.role IN ('Driver','Custodian'),
+  TRUE, FALSE, @now, @now
+FROM (
+  -- ===== BR-001 Sule =====
+  SELECT 'U-201' AS employee_id, 'Ei Ei Khaing' AS name, 'ei.eikhaing' AS username, 'Maker' AS role, 'BR-001' AS branch_code UNION ALL
+  SELECT 'U-202', 'Zaw Lin Htut',      'zaw.linhtut',     'Checker',   'BR-001' UNION ALL
+  SELECT 'U-203', 'Aung Thu Ra',       'aung.thura',      'Driver',    'BR-001' UNION ALL
+  SELECT 'U-204', 'Kyaw Swar Win',     'kyaw.swarwin',    'Driver',    'BR-001' UNION ALL
+  SELECT 'U-205', 'Myo Min Khant',     'myo.minkhant',    'Driver',    'BR-001' UNION ALL
+  SELECT 'U-206', 'Nandar Aye',        'nandar.aye',      'Custodian', 'BR-001' UNION ALL
+  SELECT 'U-207', 'Hsu Myat Noe',      'hsu.myatnoe',     'Custodian', 'BR-001' UNION ALL
+  SELECT 'U-208', 'Thiri Hlaing',      'thiri.hlaing',    'Custodian', 'BR-001' UNION ALL
+  SELECT 'U-209', 'Pyone Pyone Kyaw',  'pyone.pyonekyaw', 'Custodian', 'BR-001' UNION ALL
+  SELECT 'U-210', 'Than Zin Oo',       'than.zinoo',      'Custodian', 'BR-001' UNION ALL
+  -- ===== BR-002 Bahan =====
+  SELECT 'U-211', 'Su Mon Htwe',       'su.monhtwe',      'Maker',     'BR-002' UNION ALL
+  SELECT 'U-212', 'Htay Aung Kyaw',    'htay.aungkyaw',   'Checker',   'BR-002' UNION ALL
+  SELECT 'U-213', 'Zin Ko Ko',         'zin.koko',        'Driver',    'BR-002' UNION ALL
+  SELECT 'U-214', 'Moe Kyaw Thu',      'moe.kyawthu',     'Driver',    'BR-002' UNION ALL
+  SELECT 'U-215', 'Naing Lin Aung',    'naing.linaung',   'Driver',    'BR-002' UNION ALL
+  SELECT 'U-216', 'Khin Zar Chi',      'khin.zarchi',     'Custodian', 'BR-002' UNION ALL
+  SELECT 'U-217', 'Cho Cho Win',       'cho.chowin',      'Custodian', 'BR-002' UNION ALL
+  SELECT 'U-218', 'May Phyu Sin',      'may.phyusin',     'Custodian', 'BR-002' UNION ALL
+  SELECT 'U-219', 'Yamin Oo',          'yamin.oo',        'Custodian', 'BR-002' UNION ALL
+  SELECT 'U-220', 'Aye Thet Mon',      'aye.thetmon',     'Custodian', 'BR-002' UNION ALL
+  -- ===== BR-003 Hlaing =====
+  SELECT 'U-221', 'Thet Thet Naing',   'thet.thetnaing',  'Maker',     'BR-003' UNION ALL
+  SELECT 'U-222', 'Ko Ko Lwin',        'ko.kolwin',       'Checker',   'BR-003' UNION ALL
+  SELECT 'U-223', 'Hein Htet Zaw',     'hein.htetzaw',    'Driver',    'BR-003' UNION ALL
+  SELECT 'U-224', 'Saw Myat Min',      'saw.myatmin',     'Driver',    'BR-003' UNION ALL
+  SELECT 'U-225', 'Lwin Moe Htet',     'lwin.moehtet',    'Driver',    'BR-003' UNION ALL
+  SELECT 'U-226', 'Poe Ei Ei',         'poe.eiei',        'Custodian', 'BR-003' UNION ALL
+  SELECT 'U-227', 'Wint Yee Mon',      'wint.yeemon',     'Custodian', 'BR-003' UNION ALL
+  SELECT 'U-228', 'Shwe Sin Win',      'shwe.sinwin',     'Custodian', 'BR-003' UNION ALL
+  SELECT 'U-229', 'Nilar Tun',         'nilar.tun',       'Custodian', 'BR-003' UNION ALL
+  SELECT 'U-230', 'Hay Mar Soe',       'hay.marsoe',      'Custodian', 'BR-003' UNION ALL
+  -- ===== BR-004 Insein =====
+  SELECT 'U-231', 'Mi Mi Khaing',      'mi.mikhaing',     'Maker',     'BR-004' UNION ALL
+  SELECT 'U-232', 'Soe Moe Tun',       'soe.moetun',      'Checker',   'BR-004' UNION ALL
+  SELECT 'U-233', 'Tin Aung Myint',    'tin.aungmyint',   'Driver',    'BR-004' UNION ALL
+  SELECT 'U-234', 'Kyaw Hein Thu',     'kyaw.heinthu',    'Driver',    'BR-004' UNION ALL
+  SELECT 'U-235', 'Yan Naing Soe',     'yan.naingsoe',    'Driver',    'BR-004' UNION ALL
+  SELECT 'U-236', 'Thazin Nwe',        'thazin.nwe',      'Custodian', 'BR-004' UNION ALL
+  SELECT 'U-237', 'Ei Thinzar Htay',   'ei.thinzarhtay',  'Custodian', 'BR-004' UNION ALL
+  SELECT 'U-238', 'Sandar Min',        'sandar.min',      'Custodian', 'BR-004' UNION ALL
+  SELECT 'U-239', 'Zun Pwint Phyu',    'zun.pwintphyu',   'Custodian', 'BR-004' UNION ALL
+  SELECT 'U-240', 'Htar Htar Oo',      'htar.htaroo',     'Custodian', 'BR-004' UNION ALL
+  -- ===== BR-005 Sanchaung =====
+  SELECT 'U-241', 'Pann Ei Mon',       'pann.eimon',      'Maker',     'BR-005' UNION ALL
+  SELECT 'U-242', 'Win Htut Oo',       'win.htutoo',      'Checker',   'BR-005' UNION ALL
+  SELECT 'U-243', 'Si Thu Aung',       'si.thuaung',      'Driver',    'BR-005' UNION ALL
+  SELECT 'U-244', 'Arkar Zaw',         'arkar.zaw',       'Driver',    'BR-005' UNION ALL
+  SELECT 'U-245', 'Min Khant Kyaw',    'min.khantkyaw',   'Driver',    'BR-005' UNION ALL
+  SELECT 'U-246', 'Yoon Shwe Yi',      'yoon.shweyi',     'Custodian', 'BR-005' UNION ALL
+  SELECT 'U-247', 'Thet Su Hlaing',    'thet.suhlaing',   'Custodian', 'BR-005' UNION ALL
+  SELECT 'U-248', 'Phway Phway',       'phway.phway',     'Custodian', 'BR-005' UNION ALL
+  SELECT 'U-249', 'Nan Kham Aye',      'nan.khamaye',     'Custodian', 'BR-005' UNION ALL
+  SELECT 'U-250', 'Moh Moh Thet',      'moh.mohthet',     'Custodian', 'BR-005' UNION ALL
+  -- ===== HQ-001: extra Checkers =====
+  SELECT 'U-251', 'Kyaw Myo Thant',    'kyaw.myothant',   'Checker',   'HQ-001' UNION ALL
+  SELECT 'U-252', 'Thin Zar Wint',     'thin.zarwint',    'Checker',   'HQ-001'
+) u;
 
 -- ---------------------------------------------------------------------
 -- Teams (1 driver + 2 custodians each, confirmed)
@@ -230,3 +347,19 @@ INSERT INTO audit_logs (user_id, cash_request_id, action, details, source, lat, 
 INSERT INTO notifications (user_id, cash_request_id, type, title, body, link, read_at, created_at, updated_at) VALUES
   (@checker, (SELECT id FROM cash_requests WHERE reference = 'REQ-1048'), 'request.submitted', 'New request to review', 'REQ-1048 · Sule · MMK 250,000', '/approvals/REQ-1048', NULL, @now - INTERVAL 20 MINUTE, @now),
   (@ali,     @r1043, 'team.assigned', 'New assignment', 'REQ-1043 · Hlaing → HQ · MMK 320,000', NULL, @now - INTERVAL 82 MINUTE, @now - INTERVAL 85 MINUTE, @now);
+
+-- ---------------------------------------------------------------------
+-- Quick check: users per branch and role (safe to delete this query)
+-- ---------------------------------------------------------------------
+SELECT b.code AS branch,
+       COUNT(*) AS total_users,
+       SUM(r.name = 'Super Admin') AS super_admins,
+       SUM(r.name = 'Maker')       AS makers,
+       SUM(r.name = 'Checker')     AS checkers,
+       SUM(r.name = 'Driver')      AS drivers,
+       SUM(r.name = 'Custodian')   AS custodians
+FROM users u
+JOIN branches b ON b.id = u.branch_id
+JOIN roles r    ON r.id = u.role_id
+GROUP BY b.code
+ORDER BY b.code;

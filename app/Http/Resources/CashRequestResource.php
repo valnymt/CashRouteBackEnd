@@ -15,7 +15,7 @@ class CashRequestResource extends JsonResource
         'approved' => 'Approved',
         'assigned' => 'Assigned',
         'in_transit' => 'In Transit',
-        'completed' => 'Delivered',
+        'completed' => 'Completed',
         'rejected' => 'Rejected',
         'cancelled' => 'Cancelled',
     ];
@@ -89,14 +89,14 @@ class CashRequestResource extends JsonResource
             $teamLabel = $team ? "$team assigned" : 'Team assigned';
             $add($this->trip->assigned_at?->toIso8601String(), $teamLabel, $approver);
             $add($this->trip->accepted_at?->toIso8601String(), 'Team accepted', $team ?? '—');
-            // "In transit" is implicit once the trip is Delivered — only show it
+            // "In transit" is implicit once the trip is Completed — only show it
             // while the trip is still on the road.
             if (!$this->trip->completed_at) {
                 $add($this->trip->started_at?->toIso8601String(), 'In transit', $team ?? '—');
             }
-            $add($this->trip->completed_at?->toIso8601String(), 'Delivered', $team ?? '—');
+            $add($this->trip->completed_at?->toIso8601String(), 'Completed', $team ?? '—');
         } else {
-            $add($this->completed_at?->toIso8601String(), 'Delivered', $maker);
+            $add($this->completed_at?->toIso8601String(), 'Completed', $maker);
         }
 
         // Chronological, then de-dupe entries sharing a label.
@@ -120,7 +120,7 @@ class CashRequestResource extends JsonResource
                 : 'Cancelled by Maker' . (isset($details['reason']) ? ' — ' . $details['reason'] : ''),
             'accept' => 'Team accepted',
             'in_transit' => 'In transit',
-            'completed' => 'Delivered',
+            'completed' => 'Completed',
             'otp.verified' => 'OTP verified · ' . ($details['stage'] ?? ''),
             default => ucfirst(str_replace('.', ' ', $log->action)),
         };

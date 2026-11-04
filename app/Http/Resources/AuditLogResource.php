@@ -17,8 +17,8 @@ class AuditLogResource extends JsonResource
         'assign'       => 'Assign',
         'cancel'       => 'Cancel',
         'in_transit'   => 'In Transit',
-        'completed'    => 'Delivered',
-        'delivered'    => 'Delivered',
+        'completed'    => 'Completed',
+        'delivered'    => 'Completed',
         'accept'       => 'In Transit',
         'otp.verified' => 'In Transit',
     ];
