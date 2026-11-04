@@ -24,8 +24,8 @@ class UserResource extends JsonResource
             'status'              => $this->is_locked ? 'Locked' : 'Active',
             'branchId'            => $this->branch?->code,
             'teamId'              => $this->teams->first() ? (string) $this->teams->first()->id : null,
-            // True right after a password reset — the portal pushes the user into
-            // the Change Password screen until they pick a new one.
+            'createdAt'           => $this->created_at?->toISOString(),
+            // True right after a Super Admin reactivates the account.
             'mustChangePassword'  => (bool) $this->must_change_password,
         ];
     }
