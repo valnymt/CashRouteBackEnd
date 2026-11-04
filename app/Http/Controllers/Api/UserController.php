@@ -27,29 +27,40 @@ class UserController extends Controller
 
     /** POST /api/users — Add User (needs users.manage). */
     public function store(Request $request)
-    {
-        abort_unless($request->user()->hasPermission('users.manage'), 403, 'Only a Super Admin can add users.');
-        $data = $this->validated($request);
-        $role = Role::where('name', $data['role'])->firstOrFail();
+{
+    abort_unless(
+        $request->user()->hasPermission('users.manage'),
+        403,
+        'Only a Super Admin can add users.'
+    );
 
-        $user = User::create([
-            'employee_id' => $this->nextEmployeeId(),
-            'name' => $data['name'],
-            'username' => $this->uniqueUsername($data['username'] ?? $data['name']),
-            'email' => $data['email'],
-            'phone' => $data['mobile'] ?? null,
-            'password' => $data['password'],            // hashed automatically (User casts)
-            'must_change_password' => true,
-            'role_id' => $role->id,
-            'branch_id' => $this->branchIdFor($role, $data['branchId'] ?? null),
-            'is_delivery_member' => $role->channel === 'mobile',
-            'is_locked' => ($data['status'] ?? 'Active') === 'Locked',
-        ]);
+    $data = $this->validated($request);
 
-        Audit::log('user.create', null, ['user' => $user->employee_id, 'role' => $role->name]);
+    $role = Role::where('name', $data['role'])->firstOrFail();
 
-        return (new UserResource($user->load(['role', 'branch', 'teams'])))->response()->setStatusCode(201);
-    }
+    $user = User::create([
+        'employee_id' => $data['employee_id'],
+        'name' => $data['name'],
+        'username' => $this->uniqueUsername($data['username'] ?? $data['name']),
+        'email' => $data['email'],
+        'phone' => $data['mobile'] ?? null,
+        'password' => $data['password'],
+        'must_change_password' => true,
+        'role_id' => $role->id,
+        'branch_id' => $this->branchIdFor($role, $data['branchId'] ?? null),
+        'is_delivery_member' => $role->channel === 'mobile',
+        'is_locked' => ($data['status'] ?? 'Active') === 'Locked',
+    ]);
+
+    Audit::log('user.create', null, [
+        'user' => $user->employee_id,
+        'role' => $role->name,
+    ]);
+
+    return (new UserResource($user->load(['role', 'branch', 'teams'])))
+        ->response()
+        ->setStatusCode(201);
+}
 
     /**
      * PUT /api/users/{id} — {id} is the employee id, e.g. U-001.
@@ -74,6 +85,7 @@ class UserController extends Controller
             $user->fill([
                 'name' => $data['name'],
                 'email' => $data['email'],
+                'employee_id' => $data['employee_id'],
                 'phone' => $data['mobile'] ?? null,
                 'role_id' => $role->id,
                 'branch_id' => $this->branchIdFor($role, $data['branchId'] ?? null),
@@ -140,6 +152,14 @@ class UserController extends Controller
     private function validated(Request $request, ?User $user = null): array
     {
         return $request->validate([
+            'employee_id' => [
+                'required',
+                'string',
+                'max:30',
+                'regex:/^U-[0-9]+$/',
+                Rule::unique('users', 'employee_id')->ignore($user?->id, 'id'),
+            ],
+    
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:160', Rule::unique('users', 'email')->ignore($user?->id)],
             'role' => ['required', Rule::exists('roles', 'name')],
