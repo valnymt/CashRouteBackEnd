@@ -24,6 +24,7 @@ class UserResource extends JsonResource
             'status'   => $this->is_locked ? 'Locked' : 'Active',
             'branchId' => $this->branch?->code,
             'teamId'   => $this->teams->first() ? (string) $this->teams->first()->id : null,
+            'createdAt' => $this->created_at?->toISOString(),
         ];
     }
 }
