@@ -31,6 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [UserController::class, 'index']);
     Route::post('/users', [UserController::class, 'store']);
     Route::put('/users/{id}', [UserController::class, 'update']);
+    // SA only — unlocks the account, generates a one-time password, returns it in
+    // the response so the admin can read it to the user (and we log it too).
+    Route::post('/users/{id}/reactivate', [UserController::class, 'reactivate']);
     Route::get('/teams', [TeamController::class, 'index']);
     Route::post('/teams', [TeamController::class, 'store']);
     Route::put('/teams/{id}', [TeamController::class, 'update']);

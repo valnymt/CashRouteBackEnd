@@ -64,7 +64,7 @@ class AuthController extends Controller
         ]);
 
         $user = $request->user();
-        if (! Hash::check($data['current_password'], $user->password)) {
+        if (!Hash::check($data['current_password'], $user->password)) {
             return response()->json([
                 'message' => 'Current password is incorrect.',
                 'errors'  => ['current_password' => ['Current password is incorrect.']],
@@ -72,7 +72,7 @@ class AuthController extends Controller
         }
 
         $user->update([
-            'password' => $data['password'],   // auto-hashed by the User cast
+            'password'             => $data['password'],   // auto-hashed by the User cast
             'must_change_password' => false,
         ]);
         Audit::log('password.change');

@@ -117,18 +117,18 @@ FROM (
   SELECT 'U-001' employee_id, 'Amy Tan' name,    'amy.tan' username,     'amy.tan@cashroute.com' email,     '+95 9 4137531' phone, 'Maker' role,       'BR-001' branch_code, FALSE is_locked UNION ALL
   SELECT 'U-002', 'Priya Nair', 'priya.nair',  'priya.nair@cashroute.com',  '+95 9 4275062', 'Maker',       'HQ-001', FALSE UNION ALL
   SELECT 'U-003', 'Admin User', 'admin.maker', 'admin.user@cashroute.com',  '+95 9 4412593', 'Super Admin', 'HQ-001', FALSE UNION ALL
-  SELECT 'U-004', 'Raj Kumar',  'raj.kumar',   'raj.kumar@cashroute.com',   '+95 9 4550124', 'Driver',      NULL,     FALSE UNION ALL
-  SELECT 'U-005', 'Lena Ho',    'lena.ho',     'lena.ho@cashroute.com',     '+95 9 4687655', 'Custodian',   NULL,     FALSE UNION ALL
-  SELECT 'U-006', 'Sam Yeo',    'sam.yeo',     'sam.yeo@cashroute.com',     '+95 9 4825186', 'Custodian',   NULL,     TRUE  UNION ALL
-  SELECT 'U-007', 'Tom Chew',   'tom.chew',    'tom.chew@cashroute.com',    '+95 9 4962717', 'Custodian',   NULL,     FALSE UNION ALL
-  SELECT 'U-008', 'Ali Rahim',  'ali.rahim',   'ali.rahim@cashroute.com',   '+95 9 5100248', 'Driver',      NULL,     FALSE UNION ALL
-  SELECT 'U-009', 'Grace Lim',  'grace.lim',   'grace.lim@cashroute.com',   '+95 9 5237779', 'Custodian',   NULL,     FALSE UNION ALL
-  SELECT 'U-010', 'Ken Ong',    'ken.ong',     'ken.ong@cashroute.com',     '+95 9 5375310', 'Custodian',   NULL,     FALSE UNION ALL
-  SELECT 'U-011', 'Vik Shah',   'vik.shah',    'vik.shah@cashroute.com',    '+95 9 5512841', 'Driver',      NULL,     FALSE UNION ALL
-  SELECT 'U-012', 'Mei Ling',   'mei.ling',    'mei.ling@cashroute.com',    '+95 9 5650372', 'Custodian',   NULL,     FALSE UNION ALL
-  SELECT 'U-013', 'Joe Tan',    'joe.tan',     'joe.tan@cashroute.com',     '+95 9 5787903', 'Custodian',   NULL,     FALSE UNION ALL
-  SELECT 'U-014', 'Dina Wu',    'dina.wu',     'dina.wu@cashroute.com',     '+95 9 5925434', 'Driver',      NULL,     FALSE UNION ALL
-  SELECT 'U-015', 'Hari Raj',   'hari.raj',    'hari.raj@cashroute.com',    '+95 9 6062965', 'Custodian',   NULL,     FALSE UNION ALL
+  SELECT 'U-004', 'Raj Kumar',  'raj.kumar',   'raj.kumar@cashroute.com',   '+95 9 4550124', 'Driver',      'BR-001', FALSE UNION ALL
+  SELECT 'U-005', 'Lena Ho',    'lena.ho',     'lena.ho@cashroute.com',     '+95 9 4687655', 'Custodian',   'BR-001', FALSE UNION ALL
+  SELECT 'U-006', 'Sam Yeo',    'sam.yeo',     'sam.yeo@cashroute.com',     '+95 9 4825186', 'Custodian',   'BR-001', TRUE  UNION ALL
+  SELECT 'U-007', 'Tom Chew',   'tom.chew',    'tom.chew@cashroute.com',    '+95 9 4962717', 'Custodian',   'BR-001', FALSE UNION ALL
+  SELECT 'U-008', 'Ali Rahim',  'ali.rahim',   'ali.rahim@cashroute.com',   '+95 9 5100248', 'Driver',      'BR-002', FALSE UNION ALL
+  SELECT 'U-009', 'Grace Lim',  'grace.lim',   'grace.lim@cashroute.com',   '+95 9 5237779', 'Custodian',   'BR-002', FALSE UNION ALL
+  SELECT 'U-010', 'Ken Ong',    'ken.ong',     'ken.ong@cashroute.com',     '+95 9 5375310', 'Custodian',   'BR-002', FALSE UNION ALL
+  SELECT 'U-011', 'Vik Shah',   'vik.shah',    'vik.shah@cashroute.com',    '+95 9 5512841', 'Driver',      'BR-003', FALSE UNION ALL
+  SELECT 'U-012', 'Mei Ling',   'mei.ling',    'mei.ling@cashroute.com',    '+95 9 5650372', 'Custodian',   'BR-003', FALSE UNION ALL
+  SELECT 'U-013', 'Joe Tan',    'joe.tan',     'joe.tan@cashroute.com',     '+95 9 5787903', 'Custodian',   'BR-003', FALSE UNION ALL
+  SELECT 'U-014', 'Dina Wu',    'dina.wu',     'dina.wu@cashroute.com',     '+95 9 5925434', 'Driver',      'BR-005', FALSE UNION ALL
+  SELECT 'U-015', 'Hari Raj',   'hari.raj',    'hari.raj@cashroute.com',    '+95 9 6062965', 'Custodian',   'BR-005', FALSE UNION ALL
   SELECT 'U-016', 'Daniel Lim', 'daniel.lim',  'daniel.lim@cashroute.com',  '+95 9 6200496', 'Checker',     'BR-002', FALSE
 ) u;
 

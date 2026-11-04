@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Delivery Teams: list, Create Team, Edit members, Confirm team.
- * A team is a draft until confirmed; confirming needs at least 1 driver + 2 custodians.
+ * Members are always from one branch. A team is a draft until confirmed; confirming needs at least 1 driver + 2 custodians.
  * Any member change makes it a draft again. Teams on a trip can't be changed.
  */
 class TeamController extends Controller
@@ -86,6 +86,15 @@ class TeamController extends Controller
             if ($old && $old->id !== $team->id && $old->status === 'on_trip') {
                 throw ValidationException::withMessages(['members' => "{$m->name} is on a delivery with {$old->name}."]);
             }
+        }
+
+        // Every member is from the same branch (drafts too).
+        $missing = $members->first(fn ($m) => ! $m->branch_id);
+        if ($missing) {
+            throw ValidationException::withMessages(['members' => "{$missing->name} has no branch yet. Set one in User Accounts first."]);
+        }
+        if ($members->pluck('branch_id')->unique()->count() > 1) {
+            throw ValidationException::withMessages(['members' => 'All team members must be from the same branch.']);
         }
 
         $confirm = (bool) ($data['confirmed'] ?? false);
