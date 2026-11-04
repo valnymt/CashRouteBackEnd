@@ -69,6 +69,7 @@ class CashRequestController extends Controller
         $me = $request->user();
         $this->ensureMaker($me);
         $data = $this->validated($request);
+        $this->ensureBranch($me, Branch::where('code', $data['branchId'])->value('id'), 'create');
 
         $r = DB::transaction(function () use ($data, $me) {
             $r = CashRequest::create([
@@ -105,6 +106,7 @@ class CashRequestController extends Controller
         abort_if($r->status !== 'pending', 409, "{$r->reference} is {$r->status} and can no longer be edited.");
 
         $data = $this->validated($request);
+        $this->ensureBranch($me, Branch::where('code', $data['branchId'])->value('id'), 'create');
         $enum = CompletionWindow::toEnum($data['slot']);
 
         $r->update([
@@ -135,6 +137,7 @@ class CashRequestController extends Controller
 
         if ($byChecker) {
             abort_unless($me->hasPermission('requests.cancel_approved'), 403, 'Only Checkers can cancel an approved request.');
+            $this->ensureBranch($me, $r->branch_id, 'cancel');
             $reason = trim((string) $request->input('reason'));
             if ($reason === '') {
                 throw ValidationException::withMessages([
@@ -189,6 +192,7 @@ class CashRequestController extends Controller
         $me = $request->user();
         $this->ensureChecker($me);
         $this->ensureNotOwn($r, $me, 'approve');
+        $this->ensureBranch($me, $r->branch_id, 'approve');
         abort_if($r->status !== 'pending', 409, "{$r->reference} is already {$r->status}.");
 
         $r->update(['status' => 'approved', 'approved_by' => $me->id, 'approved_at' => now()]);
@@ -205,6 +209,7 @@ class CashRequestController extends Controller
         $me = $request->user();
         $this->ensureChecker($me);
         $this->ensureNotOwn($r, $me, 'reject');
+        $this->ensureBranch($me, $r->branch_id, 'reject');
         abort_if($r->status !== 'pending', 409, "{$r->reference} is already {$r->status}.");
 
         $reason = trim((string) $request->input('reason'));
@@ -236,6 +241,7 @@ class CashRequestController extends Controller
         $r = $this->find($reference);
         $me = $request->user();
         abort_unless($me->hasPermission('requests.assign'), 403, 'You are not allowed to assign teams.');
+        $this->ensureBranch($me, $r->branch_id, 'assign');
 
         $reassigning = $r->status === 'assigned';
         if (!in_array($r->status, ['approved', 'assigned'], true)) {
@@ -257,6 +263,9 @@ class CashRequestController extends Controller
         }
         abort_if($team->status !== 'available', 409, "{$team->name} is on a trip.");
         abort_unless($team->is_confirmed, 409, "{$team->name} isn't confirmed yet. Confirm it in Delivery Teams first.");
+        // All members share one branch, so any member's branch is the team's.
+        $teamBranch = $team->members()->value('users.branch_id');
+        abort_unless($teamBranch !== null && (int) $teamBranch === (int) $r->branch_id, 422, "{$team->name} is not from {$r->branch->name}. Assign a team from the request's branch.");
 
         DB::transaction(function () use ($r, $team, $me, $reassigning) {
             if ($reassigning && $r->trip) {
@@ -335,6 +344,15 @@ class CashRequestController extends Controller
     private function ensureChecker($user): void
     {
         abort_unless($user->hasPermission('requests.approve'), 403, 'Only Checkers can review requests.');
+    }
+
+    /** Branch Makers/Checkers only act on their own branch's requests; Super Admin and HQ staff act on all. */
+    private function ensureBranch($user, ?int $branchId, string $what): void
+    {
+        $home = $user->role?->name === 'Super Admin' ? null : $user->branch;
+        if ($home && ! $home->is_hq && (int) $home->id !== (int) $branchId) {
+            abort(403, "You can only {$what} requests for your own branch ({$home->name}).");
+        }
     }
 
     private function ensureNotOwn(CashRequest $r, $me, string $what): void
