@@ -15,7 +15,6 @@ class UserResource extends JsonResource
     public function toArray($request): array
     {
         return [
-<<<<<<< HEAD
             'id'                 => $this->employee_id,
             'name'               => $this->name,
             'username'           => $this->username,
@@ -29,20 +28,6 @@ class UserResource extends JsonResource
             // True right after a Super Admin reactivates the account. Portal
             // uses this to open the profile popup in password-change mode.
             'mustChangePassword' => (bool) $this->must_change_password,
-=======
-            'id'                  => $this->employee_id,
-            'name'                => $this->name,
-            'username'            => $this->username,
-            'role'                => $this->role->name,
-            'mobile'              => $this->phone ?? '',
-            'email'               => $this->email,
-            'status'              => $this->is_locked ? 'Locked' : 'Active',
-            'branchId'            => $this->branch?->code,
-            'teamId'              => $this->teams->first() ? (string) $this->teams->first()->id : null,
-            'createdAt'           => $this->created_at?->toISOString(),
-            // True right after a Super Admin reactivates the account.
-            'mustChangePassword'  => (bool) $this->must_change_password,
->>>>>>> develop
         ];
     }
 }
