@@ -26,10 +26,22 @@ class CashRequestController extends Controller
     /** GET /api/requests — any signed-in user. */
     public function index()
     {
+        $user = auth()->user();
+
+        $query = CashRequest::with([
+            'branch',
+            'creator',
+            'trip',
+            'auditLogs.user',
+        ]);
+
+        // Makers can only see requests belonging to their assigned branch.
+        if ($user->role === 'Maker') {
+            $query->where('branch_id', $user->branch_id);
+        }
+
         return CashRequestResource::collection(
-            CashRequest::with(['branch', 'creator', 'trip', 'auditLogs.user'])
-                ->orderByDesc('id')
-                ->get()
+            $query->orderByDesc('id')->get()
         );
     }
 
@@ -37,6 +49,16 @@ class CashRequestController extends Controller
     public function show(string $reference)
     {
         $r = $this->find($reference);
+
+        $user = auth()->user();
+
+        // Prevent Makers from viewing requests from other branches.
+        if (
+            $user->role === 'Maker' &&
+            $r->branch_id !== $user->branch_id
+        ) {
+            abort(403, 'You are not authorized to view this request.');
+        }
 
         return new CashRequestResource($r);
     }
