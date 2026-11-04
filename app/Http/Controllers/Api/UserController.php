@@ -9,8 +9,10 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\Audit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /** User Accounts: list, Add User, Edit User / Unlock, Change password. */
 class UserController extends Controller
@@ -65,6 +67,10 @@ class UserController extends Controller
 
         if ($canManage) {
             $role = Role::where('name', $data['role'])->firstOrFail();
+            // Teams are single-branch, so a team member's branch and role are fixed until they leave the team.
+            if ($user->teams()->exists() && ($user->role_id !== $role->id || $user->branch?->code !== ($data['branchId'] ?? null))) {
+                throw ValidationException::withMessages(['branchId' => 'Remove this member from their team before changing branch or role.']);
+            }
             $user->fill([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -93,6 +99,43 @@ class UserController extends Controller
         return new UserResource($user->load(['role', 'branch', 'teams']));
     }
 
+    /**
+     * POST /api/users/{id}/reactivate — Super Admin unlocks a locked account and
+     * generates a one-time password. The temp password (`username-YYYY`) is
+     * returned in the response so the admin can relay it, is logged for the demo,
+     * and mustChangePassword is set so the user is forced to pick their own on
+     * first sign-in.
+     */
+    public function reactivate(Request $request, string $id)
+    {
+        $me = $request->user();
+        abort_unless($me->hasPermission('users.manage'), 403, 'Only a Super Admin can reactivate accounts.');
+
+        $user = User::where('employee_id', $id)->firstOrFail();
+
+        $tempPassword = $user->username . '-' . now()->year;
+
+        $user->update([
+            'password'             => $tempPassword, // auto-hashed by the User cast
+            'must_change_password' => false,         // user can change it on their own whenever they like
+            'is_locked'            => false,
+            'failed_attempts'      => 0,
+            'locked_at'            => null,
+        ]);
+
+        // Demo: logs the generated password so a teammate without SMTP can read it
+        // from storage/logs/laravel.log. Swap for a real Mailable later.
+        Log::info("Reactivation password for {$user->email}: {$tempPassword}");
+        Audit::log('user.reactivate', null, ['user' => $user->employee_id]);
+
+        return [
+            'user'         => (new UserResource($user->load(['role', 'branch', 'teams'])))->toArray($request),
+            'tempPassword' => $tempPassword,
+            // The admin can read this out to the user if the email blast fails.
+            'sentTo'       => $user->email,
+        ];
+    }
+
     /** Field names match the portal's form (src/services/types.ts → UserInput). */
     private function validated(Request $request, ?User $user = null): array
     {
@@ -102,7 +145,7 @@ class UserController extends Controller
             'role' => ['required', Rule::exists('roles', 'name')],
             'mobile' => ['nullable', 'string', 'max:30', 'regex:/^\+?[\d\s-]{6,}$/'],
             'status' => ['nullable', Rule::in(['Active', 'Locked'])],
-            'branchId' => ['nullable', Rule::exists('branches', 'code')],
+            'branchId' => [Rule::requiredIf(fn () => $request->user()->hasPermission('users.manage')), 'nullable', Rule::exists('branches', 'code')],
             'username' => ['nullable', 'string', 'max:60'],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:8'],
         ]);
@@ -128,10 +171,10 @@ class UserController extends Controller
         return $username;
     }
 
-    /** Delivery staff have no branch; office staff get the picked branch code → id. */
+    /** Every user (office or delivery staff) belongs to a branch: picked branch code → id. */
     private function branchIdFor(Role $role, ?string $code): ?int
     {
-        if ($role->channel === 'mobile' || ! $code) {
+        if (! $code) {
             return null;
         }
 
