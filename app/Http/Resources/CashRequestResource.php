@@ -14,6 +14,7 @@ class CashRequestResource extends JsonResource
         'pending' => 'Pending',
         'approved' => 'Approved',
         'assigned' => 'Assigned',
+        'reassigned' => 'Assigned',
         'in_transit' => 'In Transit',
         'completed' => 'Completed',
         'rejected' => 'Rejected',
@@ -37,7 +38,7 @@ class CashRequestResource extends JsonResource
             'teamId' => $this->trip ? (string) $this->trip->team_id : null,
             // True while a Checker can still reassign — status is Assigned but
             // the driver hasn't accepted the push yet.
-            'canReassign' => $this->status === 'assigned' && !$this->trip?->accepted_at,
+            'canReassign' => in_array($this->status, ['assigned', 'reassigned'], true) && !$this->trip?->accepted_at,
             'rejectReason' => $this->reject_reason,
             'cancelReason' => $this->cancel_reason,
             'cancelledBy' => $this->cancelled_by_role ? ucfirst($this->cancelled_by_role) : null,

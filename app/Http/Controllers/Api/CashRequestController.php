@@ -133,7 +133,7 @@ class CashRequestController extends Controller
     {
         $r = $this->find($reference);
         $me = $request->user();
-        $byChecker = in_array($r->status, ['approved', 'assigned'], true);
+        $byChecker = in_array($r->status, ['approved', 'assigned', 'reassigned'], true);
 
         if ($byChecker) {
             abort_unless($me->hasPermission('requests.cancel_approved'), 403, 'Only Checkers can cancel an approved request.');
@@ -243,8 +243,8 @@ class CashRequestController extends Controller
         abort_unless($me->hasPermission('requests.assign'), 403, 'You are not allowed to assign teams.');
         $this->ensureBranch($me, $r->branch_id, 'assign');
 
-        $reassigning = $r->status === 'assigned';
-        if (!in_array($r->status, ['approved', 'assigned'], true)) {
+        $reassigning = in_array($r->status, ['assigned', 'reassigned'], true);
+        if (!in_array($r->status, ['approved', 'assigned', 'reassigned'], true)) { 
             abort(409, "{$r->reference} can't be assigned in state {$r->status}.");
         }
         // Can't reassign once the driver has accepted — the trip is already on the road.
@@ -283,9 +283,12 @@ class CashRequestController extends Controller
                     'assigned_at' => now(),
                 ]);
             
+                $r->update([
+                    'status' => 'reassigned',
+                ]);
                 // Mark the newly assigned team as occupied.
                 $team->update(['status' => 'on_trip']);
-            
+                
                 Audit::log('reassign', $r, [
                     'from' => $oldTeamName,
                     'to' => $team->name,
