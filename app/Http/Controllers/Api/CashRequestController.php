@@ -271,20 +271,26 @@ class CashRequestController extends Controller
             if ($reassigning && $r->trip) {
                 $oldTeam = Team::find($r->trip->team_id);
                 $oldTeamName = $oldTeam?->name ?? 'previous team';
-                // Retire the old trip and free the old team.
-                $r->trip->update(['status' => 'cancelled']);
+            
+                // Release the previously assigned team.
                 $oldTeam?->update(['status' => 'available']);
-
-                Trip::create([
-                    'cash_request_id' => $r->id,
+            
+                // Update the existing trip instead of creating a duplicate.
+                $r->trip->update([
                     'team_id' => $team->id,
                     'assigned_by' => $me->id,
                     'status' => 'assigned',
                     'assigned_at' => now(),
                 ]);
+            
+                // Mark the newly assigned team as occupied.
                 $team->update(['status' => 'on_trip']);
-
-                Audit::log('reassign', $r, ['from' => $oldTeamName, 'to' => $team->name]);
+            
+                Audit::log('reassign', $r, [
+                    'from' => $oldTeamName,
+                    'to' => $team->name,
+                ]);
+            
                 $this->notifyMaker(
                     $r,
                     'request.reassigned',
