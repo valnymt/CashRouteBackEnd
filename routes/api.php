@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\DeviceTokenController;
 
 // Quick check that the API is up: GET /api/health
 Route::get('/health', fn () => response()->json([
@@ -69,6 +70,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
 
     // Notifications bell
+    // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+
+    // Mobile device push tokens
+    Route::post('/device-tokens', [DeviceTokenController::class, 'store']);
+    Route::delete('/device-tokens/{id}', [DeviceTokenController::class, 'destroy']);
 });

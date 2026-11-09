@@ -30,4 +30,27 @@ class NotificationController extends Controller
 
         return response()->noContent();
     }
+
+    /** POST /api/notifications/{id}/read */
+public function markRead(Request $request, string $id)
+{
+    // The API resource returns IDs like N-123.
+    $notificationId = preg_replace('/^N-/', '', $id);
+
+    abort_unless(
+        ctype_digit($notificationId),
+        404,
+        'Notification not found.'
+    );
+
+    $notification = UserNotification::where('user_id', $request->user()->id)
+        ->where('id', $notificationId)
+        ->firstOrFail();
+
+    $notification->update([
+        'read_at' => now(),
+    ]);
+
+    return response()->noContent();
+}
 }

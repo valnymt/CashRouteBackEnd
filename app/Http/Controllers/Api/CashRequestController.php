@@ -153,8 +153,27 @@ class CashRequestController extends Controller
         DB::transaction(function () use ($r, $me, $byChecker, $reason) {
             // Checker cancel frees the assigned team (and ends the trip, if any).
             if ($byChecker && $r->trip) {
-                Trip::where('id', $r->trip->id)->update(['status' => 'cancelled']);
-                Team::where('id', $r->trip->team_id)->update(['status' => 'available']);
+                $assignedTeam = Team::with('members')->find($r->trip->team_id);
+            
+                // Notify every member of the assigned team.
+                if ($assignedTeam) {
+                    foreach ($assignedTeam->members as $member) {
+                        UserNotification::create([
+                            'user_id' => $member->id,
+                            'cash_request_id' => $r->id,
+                            'type' => 'request.cancelled',
+                            'title' => "Delivery cancelled · {$r->reference}",
+                            'body' => "{$r->reference} has been cancelled. You no longer need to deliver this request.",
+                            'link' => null,
+                        ]);
+                    }
+            
+                    $assignedTeam->update(['status' => 'available']);
+                }
+            
+                Trip::where('id', $r->trip->id)->update([
+                    'status' => 'cancelled',
+                ]);
             }
 
             $r->update([
@@ -269,12 +288,24 @@ class CashRequestController extends Controller
 
         DB::transaction(function () use ($r, $team, $me, $reassigning) {
             if ($reassigning && $r->trip) {
-                $oldTeam = Team::find($r->trip->team_id);
+                $oldTeam = Team::with('members')->find($r->trip->team_id);
                 $oldTeamName = $oldTeam?->name ?? 'previous team';
-            
-                // Release the previously assigned team.
-                $oldTeam?->update(['status' => 'available']);
-            
+                // Tell the previous team that the assignment has been removed.
+                if ($oldTeam) {
+                    foreach ($oldTeam->members as $member) {
+                        UserNotification::create([
+                            'user_id' => $member->id,
+                            'cash_request_id' => $r->id,
+                            'type' => 'team.assignment_removed',
+                            'title' => "Assignment removed · {$r->reference}",
+                            'body' => "{$r->reference} has been reassigned to another delivery team.",
+                            'link' => null,
+                        ]);
+                    }
+                    // Release the previously assigned team.
+                    $oldTeam?->update(['status' => 'available']);
+                }
+                
                 // Update the existing trip instead of creating a duplicate.
                 $r->trip->update([
                     'team_id' => $team->id,
