@@ -32,22 +32,42 @@ class AuthController extends Controller
     }
 
     /** Token login for the mobile app and API tools (Swagger / Postman). */
-    public function token(Request $request)
-    {
-        $data = $request->validate([
-            'username' => 'required|string', 'password' => 'required|string', 'device_name' => 'required|string',
-        ]);
-        $user = $this->checkCredentials($data['username'], $data['password']);
-        Auth::setUser($user);
-        Audit::log('login', null, [], 'mobile');
+   
+public function token(Request $request)
+{
+    $data = $request->validate([
+        'username' => 'required|string',
+        'password' => 'required|string',
+        'device_name' => 'required|string',
+    ]);
 
-        return ['token' => $user->createToken($data['device_name'])->plainTextToken, 'user' => new UserResource($user)];
+    $user = $this->checkCredentials(
+        $data['username'],
+        $data['password']
+    );
+
+    // Only delivery team members can log in to the mobile app.
+    if (!$user->is_delivery_member) {
+        return response()->json([
+            'message' => 'You are not authorized to access the CashRoute mobile app.',
+        ], 403);
     }
 
-    public function me(Request $request)
-    {
-        return new UserResource($request->user());
-    }
+    Auth::setUser($user);
+
+    Audit::log('login', null, [], 'mobile');
+
+    return [
+        'token' => $user->createToken($data['device_name'])->plainTextToken,
+        'user' => new UserResource($user),
+    ];
+}
+
+public function me(Request $request)
+{
+    return new UserResource($request->user());
+}
+
 
     /**
      * POST /api/me/password — the signed-in user replaces their own password.
