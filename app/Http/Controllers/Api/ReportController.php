@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TripResource;
 use App\Models\CashRequest;
 use App\Models\Trip;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 
 /** Trip history + aggregate numbers used by the Reports page. */
@@ -14,6 +15,10 @@ class ReportController extends Controller
     /** GET /api/trips — Trip History: only finished runs with a real start→end to measure. */
     public function trips(Request $request)
     {
+        $request->attributes->set(
+            'hqBranch',
+            Branch::where('is_hq', true)->firstOrFail()
+        );
         $q = Trip::with(['cashRequest.branch', 'team'])
             ->whereNotNull('completed_at')
             ->orderByDesc('created_at');
@@ -40,6 +45,11 @@ class ReportController extends Controller
     /** GET /api/trips/{reference} — detail by request reference. */
     public function showTrip(string $reference)
     {
+        request()->attributes->set(
+            'hqBranch',
+            Branch::where('is_hq', true)->firstOrFail()
+        );
+
         $trip = Trip::with(['cashRequest.branch', 'team', 'locations'])
             ->whereHas('cashRequest', fn ($cr) => $cr->where('reference', $reference))
             ->firstOrFail();

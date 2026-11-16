@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\DeviceTokenController;
 
@@ -62,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/trips', [ReportController::class, 'trips']);
     Route::get('/trips/{reference}', [ReportController::class, 'showTrip']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
+    Route::post('/trips/{reference}/location',[TripController::class, 'updateLocation']);
 
     // OTP (mobile app — pickup/dropoff handover)
     Route::post('/cash-requests/{cashRequest}/otp', [OtpController::class, 'generate']);
