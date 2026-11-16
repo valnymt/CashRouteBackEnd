@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/requests/{reference}/approve', [CashRequestController::class, 'approve']);
     Route::post('/requests/{reference}/reject',  [CashRequestController::class, 'reject']);
     Route::post('/requests/{reference}/assign',  [CashRequestController::class, 'assign']);
+    Route::post('/requests/{reference}/accept', [CashRequestController::class, 'accept']);
 
     // Reports & Trips
     Route::get('/trips', [ReportController::class, 'trips']);

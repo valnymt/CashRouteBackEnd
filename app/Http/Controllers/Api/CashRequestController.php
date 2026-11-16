@@ -367,6 +367,72 @@ class CashRequestController extends Controller
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));
     }
 
+
+    /** POST /api/requests/{reference}/accept — Delivery team accepts an assignment. */
+    public function accept(Request $request, string $reference)
+    {
+        $me = $request->user();
+
+        // Only delivery team members can accept assignments.
+        abort_unless(
+            $me->is_delivery_member,
+            403,
+            'Only delivery team members can accept assignments.'
+        );
+
+        $trip = DB::transaction(function () use ($me, $reference) {
+
+            $r = CashRequest::where('reference', $reference)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless(
+                in_array($r->status, ['assigned', 'reassigned'], true),
+                409,
+                'This request is not available for acceptance.'
+            );
+
+            $trip = Trip::where('cash_request_id', $r->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_if(
+                $trip->accepted_at !== null,
+                409,
+                'This assignment has already been accepted.'
+            );
+
+            // Verify that the logged-in user belongs to the assigned team.
+            $isTeamMember = DB::table('team_members')
+                ->where('team_id', $trip->team_id)
+                ->where('user_id', $me->id)
+                ->exists();
+
+            abort_unless(
+                $isTeamMember,
+                403,
+                'You do not belong to the team assigned to this request.'
+            );
+
+            $trip->update([
+                'accepted_at' => now(),
+            ]);
+
+            return $trip->fresh();
+        });
+
+        return response()->json([
+            'message' => 'Assignment accepted successfully.',
+            'requestReference' => $reference,
+            'trip' => [
+                'id' => $trip->id,
+                'status' => $trip->status,
+                'accepted_at' => $trip->accepted_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+
     /* ------------------------------------------------------------------ helpers */
 
     private function find(string $reference): CashRequest
