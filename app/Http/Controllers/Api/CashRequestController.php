@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Http\Resources\MobileAssignmentResource;
 
 /**
  * Cash requests: list, show, create, edit, cancel, approve, reject, assign.
@@ -502,6 +503,54 @@ class CashRequestController extends Controller
             ]);
         }
     }
+
+    
+public function myAssignments()
+{
+    $user = auth()->user();
+
+    // Only delivery-team members can view assignments.
+    if (!$user || !$user->is_delivery_member) {
+        return response()->json([
+            'message' => 'Only delivery team members can view assignments.',
+        ], 403);
+    }
+
+    // Find the HQ branch for deposit/withdrawal routing.
+    $hq = Branch::where('is_hq', true)->first();
+
+    if (!$hq) {
+        return response()->json([
+            'message' => 'HQ branch has not been configured.',
+        ], 500);
+    }
+
+    // Return only requests assigned to teams this user belongs to.
+    // Do not filter by the user's registered branch.
+    $requests = \App\Models\CashRequest::query()
+        ->with(['branch', 'trip.team'])
+        ->whereIn('status', [
+            'assigned',
+            'reassigned',
+            'in_transit',
+        ])
+        ->whereHas('trip', function ($tripQuery) use ($user) {
+            $tripQuery
+                ->whereIn('status', ['assigned', 'in_transit'])
+                ->whereHas('team.members', function ($memberQuery) use ($user) {
+                    $memberQuery->where('users.id', $user->id);
+                });
+        })
+        ->orderByDesc('id')
+        ->get();
+
+    // Make HQ branch available to MobileAssignmentResource.
+    $requests->each(function ($cashRequest) use ($hq) {
+        $cashRequest->setRelation('hqBranch', $hq);
+    });
+
+    return MobileAssignmentResource::collection($requests);
+}
 
     /** Next REQ-#### (reference is unique in the DB). */
     private function nextReference(): string
