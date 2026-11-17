@@ -528,7 +528,7 @@ public function myAssignments()
     // Return only requests assigned to teams this user belongs to.
     // Do not filter by the user's registered branch.
     $requests = \App\Models\CashRequest::query()
-        ->with(['branch', 'trip.team'])
+        ->with(['branch', 'trip.team.members.role'])
         ->whereIn('status', [
             'assigned',
             'reassigned',

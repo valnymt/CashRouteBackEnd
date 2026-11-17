@@ -12,6 +12,7 @@ class MobileAssignmentResource extends JsonResource
         $cashRequest = $this->resource;
         $branch = $cashRequest->branch;
         $hq = $cashRequest->getRelation('hqBranch');
+        $team = $cashRequest->trip?->team;
 
         $isDeposit = strtolower($cashRequest->type) === 'deposit';
 
@@ -38,6 +39,17 @@ class MobileAssignmentResource extends JsonResource
             },
 
             'team_id' => $cashRequest->trip?->team_id,
+
+            // Actual team and members from the database.
+            'team' => $team ? [
+                'name' => $team->name,
+                'members' => $team->members->map(fn ($member) => [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'role' => $member->role?->name,
+                    'phone' => $member->phone,
+                ])->values(),
+            ] : null,
 
             'pickup' => [
                 'name' => $pickup?->name,
