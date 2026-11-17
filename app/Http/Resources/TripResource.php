@@ -42,7 +42,10 @@ class TripResource extends JsonResource
         }
 
         return [
+            // The human-readable request reference is not the database primary key.
+            // Mobile OTP routes use Laravel route-model binding and need this numeric ID.
             'id' => $cr?->reference,
+            'cashRequestId' => $cr?->id ? (int) $cr->id : null,
             'date' => $completed?->format('Y-m-d')
                 ?? $started?->format('Y-m-d')
                 ?? $cr?->requested_date?->format('Y-m-d'),

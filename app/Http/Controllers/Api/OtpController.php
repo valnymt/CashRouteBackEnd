@@ -33,10 +33,32 @@ class OtpController extends Controller
             ], 401);
         }
 
-        // TODO: Authorize the user for this cash request and stage.
+        // Only an authenticated delivery-team member assigned to an accepted trip
+        // may request a handover code for that cash request.
+        $trip = $cashRequest->trip;
+
+        abort_unless(
+            $user->is_delivery_member && $trip,
+            403,
+            'You are not authorized to request an OTP for this cash request.'
+        );
+
+        $isTeamMember = DB::table('team_members')
+            ->where('team_id', $trip->team_id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        abort_unless(
+            $isTeamMember && $trip->accepted_at !== null,
+            403,
+            'You must belong to the accepted delivery team to request this OTP.'
+        );
+
         $cashRequest->load('branch');
 
-        $email = $cashRequest->branch?->contact_email;
+        // $email = $cashRequest->branch?->contact_email;
+        //for testing only
+        $email = 'yan2392003@gmail.com';
 
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return response()->json([
@@ -130,6 +152,21 @@ class OtpController extends Controller
                 return [
                     'error' => 'OTP not found.',
                     'http' => 404,
+                ];
+            }
+
+            $trip = $otp->cashRequest?->trip;
+            $isTeamMember = $trip
+                ? DB::table('team_members')
+                    ->where('team_id', $trip->team_id)
+                    ->where('user_id', $user->id)
+                    ->exists()
+                : false;
+
+            if (!$user->is_delivery_member || !$trip || !$isTeamMember || $trip->accepted_at === null) {
+                return [
+                    'error' => 'You are not authorized to verify this OTP.',
+                    'http' => 403,
                 ];
             }
 
