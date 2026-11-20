@@ -13,6 +13,7 @@ class UserNotificationResource extends JsonResource
         return [
             'id'    => 'N-' . $this->id,
             'title' => $this->title,
+            'type'  => $this->type,
             'body'  => $this->body,
             'at'    => $this->created_at?->toIso8601String(),
             'read'  => $this->read_at !== null,

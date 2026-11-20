@@ -46,6 +46,14 @@ class DeviceTokenController extends Controller
      * DELETE /api/device-tokens/{id}
      * Remove only the signed-in user's device token.
      */
+    public function destroyCurrent(Request $request)
+    {
+        $data = $request->validate(['token' => ['required', 'string', 'max:255']]);
+        DeviceToken::where('user_id', $request->user()->id)->where('token', $data['token'])->delete();
+
+        return response()->noContent();
+    }
+
     public function destroy(Request $request, string $id)
     {
         $device = DeviceToken::where('user_id', $request->user()->id)

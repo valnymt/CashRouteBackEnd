@@ -7,6 +7,7 @@ use App\Http\Resources\TeamResource;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Audit;
+use App\Support\DeliveryNotifications;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,9 @@ class TeamController extends Controller
     /** Checks the members, moves them out of other teams, saves, sets confirmed / draft. */
     private function saveMembers(Team $team, array $data, User $by): void
     {
+        $previous = $team->members()->pluck('users.id');
+        $wasConfirmed = (bool) $team->is_confirmed;
+        $renamed = $team->wasChanged('name');
         $members = User::with(['role', 'teams'])->whereIn('employee_id', $data['memberIds'])->get();
 
         foreach ($members as $m) {
@@ -103,12 +107,22 @@ class TeamController extends Controller
         }
 
         // Moving someone out of another team turns that team back into a draft (same as the portal).
+        $changedTeams = collect();
         foreach ($members as $m) {
             $old = $m->teams->first();
             if ($old && $old->id !== $team->id) {
                 $old->members()->detach($m->id);
-                $old->update(['is_confirmed' => false, 'confirmed_at' => null, 'confirmed_by' => null]);
+                $changedTeams->put($old->id, $old);
             }
+        }
+
+        foreach ($changedTeams as $old) {
+            $old->update(['is_confirmed' => false, 'confirmed_at' => null, 'confirmed_by' => null]);
+            DeliveryNotifications::send($old->members()->pluck('users.id'), [
+                'type' => 'team.updated',
+                'title' => 'Delivery team updated',
+                'body' => "The membership of {$old->name} has changed.",
+            ]);
         }
 
         $team->members()->sync($members->pluck('id'));
@@ -117,6 +131,26 @@ class TeamController extends Controller
             'confirmed_at' => $confirm ? now() : null,
             'confirmed_by' => $confirm ? $by->id : null,
         ]);
+
+        $current = $members->pluck('id');
+        DeliveryNotifications::send($current->diff($previous), [
+            'type' => 'team.joined',
+            'title' => 'Added to a delivery team',
+            'body' => "You were added to {$team->name}.",
+        ]);
+        DeliveryNotifications::send($previous->diff($current), [
+            'type' => 'team.left',
+            'title' => 'Removed from a delivery team',
+            'body' => "You were removed from {$team->name}.",
+        ]);
+
+        if ($previous->diff($current)->isNotEmpty() || $current->diff($previous)->isNotEmpty() || $renamed || $wasConfirmed !== $confirm) {
+            DeliveryNotifications::send($previous->intersect($current), [
+                'type' => 'team.updated',
+                'title' => $confirm && !$wasConfirmed ? 'Delivery team confirmed' : 'Delivery team updated',
+                'body' => "Review your delivery team {$team->name} in CashRoute.",
+            ]);
+        }
     }
 
     /** null if the team has at least 1 driver and 2 custodians, otherwise the reason. */

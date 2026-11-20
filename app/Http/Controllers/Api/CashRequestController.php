@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\UserNotification;
 use App\Support\Audit;
 use App\Support\CompletionWindow;
+use App\Support\DeliveryNotifications;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -158,16 +159,13 @@ class CashRequestController extends Controller
             
                 // Notify every member of the assigned team.
                 if ($assignedTeam) {
-                    foreach ($assignedTeam->members as $member) {
-                        UserNotification::create([
-                            'user_id' => $member->id,
-                            'cash_request_id' => $r->id,
-                            'type' => 'request.cancelled',
-                            'title' => "Delivery cancelled · {$r->reference}",
-                            'body' => "{$r->reference} has been cancelled. You no longer need to deliver this request.",
-                            'link' => null,
-                        ]);
-                    }
+                    DeliveryNotifications::send($assignedTeam->members->modelKeys(), [
+                        'cash_request_id' => $r->id,
+                        'type' => 'request.cancelled',
+                        'title' => "Delivery cancelled · {$r->reference}",
+                        'body' => "{$r->reference} has been cancelled. You no longer need to deliver this request.",
+                        'link' => null,
+                    ]);
             
                     $assignedTeam->update(['status' => 'available']);
                 }
@@ -293,16 +291,13 @@ class CashRequestController extends Controller
                 $oldTeamName = $oldTeam?->name ?? 'previous team';
                 // Tell the previous team that the assignment has been removed.
                 if ($oldTeam) {
-                    foreach ($oldTeam->members as $member) {
-                        UserNotification::create([
-                            'user_id' => $member->id,
-                            'cash_request_id' => $r->id,
-                            'type' => 'team.assignment_removed',
-                            'title' => "Assignment removed · {$r->reference}",
-                            'body' => "{$r->reference} has been reassigned to another delivery team.",
-                            'link' => null,
-                        ]);
-                    }
+                    DeliveryNotifications::send($oldTeam->members->modelKeys(), [
+                        'cash_request_id' => $r->id,
+                        'type' => 'team.assignment_removed',
+                        'title' => "Assignment removed · {$r->reference}",
+                        'body' => "{$r->reference} has been reassigned to another delivery team.",
+                        'link' => null,
+                    ]);
                     // Release the previously assigned team.
                     $oldTeam?->update(['status' => 'available']);
                 }
@@ -353,16 +348,13 @@ class CashRequestController extends Controller
             }
 
             // Ping every member of the newly-assigned team.
-            foreach ($team->members as $member) {
-                UserNotification::create([
-                    'user_id' => $member->id,
-                    'cash_request_id' => $r->id,
-                    'type' => $reassigning ? 'team.reassigned' : 'team.assigned',
-                    'title' => $reassigning ? "New delivery · {$r->reference}" : "New delivery · {$r->reference}",
-                    'body' => "You've been assigned to {$r->reference}.",
-                    'link' => "/approvals/{$r->reference}",
-                ]);
-            }
+            DeliveryNotifications::send($team->members->modelKeys(), [
+                'cash_request_id' => $r->id,
+                'type' => $reassigning ? 'team.reassigned' : 'team.assigned',
+                'title' => $reassigning ? "Delivery reassigned to your team · {$r->reference}" : "New delivery · {$r->reference}",
+                'body' => "You've been assigned to {$r->reference}.",
+                'link' => "/approvals/{$r->reference}",
+            ]);
         });
 
         return new CashRequestResource($r->fresh(['branch', 'creator', 'trip', 'auditLogs.user']));

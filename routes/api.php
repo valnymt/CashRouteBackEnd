@@ -77,10 +77,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Notifications bell
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/{id}', [NotificationController::class, 'show']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
 
     // Mobile device push tokens
     Route::post('/device-tokens', [DeviceTokenController::class, 'store']);
+    Route::delete('/device-tokens/current', [DeviceTokenController::class, 'destroyCurrent']);
     Route::delete('/device-tokens/{id}', [DeviceTokenController::class, 'destroy']);
 });
