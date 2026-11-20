@@ -13,34 +13,96 @@ use Illuminate\Http\Request;
 class ReportController extends Controller
 {
     /** GET /api/trips — Trip History: only finished runs with a real start→end to measure. */
-    public function trips(Request $request)
-    {
-        $request->attributes->set(
-            'hqBranch',
-            Branch::where('is_hq', true)->firstOrFail()
-        );
-        $q = Trip::with(['cashRequest.branch', 'team'])
-            ->whereNotNull('completed_at')
-            ->orderByDesc('created_at');
+    // public function trips(Request $request)
+    // {
+    //     $request->attributes->set(
+    //         'hqBranch',
+    //         Branch::where('is_hq', true)->firstOrFail()
+    //     );
+    //     $q = Trip::with(['cashRequest.branch', 'team'])
+    //         ->whereNotNull('completed_at')
+    //         ->orderByDesc('created_at');
 
-        if ($request->filled('status')) {
-            $q->where('status', $request->status);
-        }
-        if ($request->filled('team_id')) {
-            $q->where('team_id', $request->team_id);
-        }
-        if ($request->filled('date_from')) {
-            $q->whereDate('created_at', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $q->whereDate('created_at', '<=', $request->date_to);
-        }
-        if ($request->filled('branch_id')) {
-            $q->whereHas('cashRequest', fn ($cr) => $cr->where('branch_id', $request->branch_id));
+    //     if ($request->filled('status')) {
+    //         $q->where('status', $request->status);
+    //     }
+    //     if ($request->filled('team_id')) {
+    //         $q->where('team_id', $request->team_id);
+    //     }
+    //     if ($request->filled('date_from')) {
+    //         $q->whereDate('created_at', '>=', $request->date_from);
+    //     }
+    //     if ($request->filled('date_to')) {
+    //         $q->whereDate('created_at', '<=', $request->date_to);
+    //     }
+    //     if ($request->filled('branch_id')) {
+    //         $q->whereHas('cashRequest', fn ($cr) => $cr->where('branch_id', $request->branch_id));
+    //     }
+
+    //     return TripResource::collection($q->get());
+    // }
+
+/** GET /api/trips — Trip History */
+public function trips(Request $request)
+{
+    $request->attributes->set(
+        'hqBranch',
+        Branch::where('is_hq', true)->firstOrFail()
+    );
+
+    $user = $request->user();
+
+    $q = Trip::with(['cashRequest.branch', 'team'])
+        ->orderByDesc('created_at');
+
+    if ($user->is_delivery_member) {
+        $team = $user->teams()->first();
+
+        if (!$team) {
+            return TripResource::collection(collect());
         }
 
-        return TripResource::collection($q->get());
+        $q->where('team_id', $team->id);
+
+        if ($request->boolean('include_cancelled')) {
+            $q->where(function ($query) {
+                $query->whereNotNull('completed_at')
+                    ->orWhere('status', 'cancelled');
+            });
+        } else {
+            $q->whereNotNull('completed_at');
+        }
+    } else {
+        // Keep existing Admin Portal behavior.
+        $q->whereNotNull('completed_at');
     }
+
+    if ($request->filled('status')) {
+        $q->where('status', $request->status);
+    }
+
+    if (!$user->is_delivery_member && $request->filled('team_id')) {
+        $q->where('team_id', $request->team_id);
+    }
+
+    if ($request->filled('date_from')) {
+        $q->whereDate('created_at', '>=', $request->date_from);
+    }
+
+    if ($request->filled('date_to')) {
+        $q->whereDate('created_at', '<=', $request->date_to);
+    }
+
+    if ($request->filled('branch_id')) {
+        $q->whereHas('cashRequest', fn ($cr) =>
+            $cr->where('branch_id', $request->branch_id)
+        );
+    }
+
+    return TripResource::collection($q->get());
+}
+
+
 
     /** GET /api/trips/{reference} — detail by request reference. */
     public function showTrip(string $reference)

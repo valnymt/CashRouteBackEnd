@@ -46,9 +46,16 @@ class TripResource extends JsonResource
             // Mobile OTP routes use Laravel route-model binding and need this numeric ID.
             'id' => $cr?->reference,
             'cashRequestId' => $cr?->id ? (int) $cr->id : null,
+            //
+            'status' => ucfirst(str_replace('_', ' ', $this->status)),
+            'branch' => $branch?->name,
+            // 'date' => $completed?->format('Y-m-d')
+            //     ?? $started?->format('Y-m-d')
+            //     ?? $cr?->requested_date?->format('Y-m-d'),
             'date' => $completed?->format('Y-m-d')
-                ?? $started?->format('Y-m-d')
-                ?? $cr?->requested_date?->format('Y-m-d'),
+                    ?? $started?->format('Y-m-d')
+                    ?? $this->created_at?->format('Y-m-d')
+                    ?? $cr?->requested_date?->format('Y-m-d'),
 
             'branchId' => $branch?->code,
             'type' => $cr?->type === 'deposit' ? 'Deposit' : 'Withdrawal',
