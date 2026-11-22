@@ -47,6 +47,14 @@ class TripController extends Controller
             409,
             'GPS updates are only accepted for trips in transit.'
         );
+        $recordedAt = now();
+
+        $trip->update([
+            'current_lat'  => $data['latitude'],
+            'current_lng'  => $data['longitude'],
+            'last_ping_at' => $recordedAt,
+        ]);
+
 
         DB::transaction(function () use ($trip, $data) {
             $recordedAt = now();
@@ -76,5 +84,7 @@ class TripController extends Controller
                 'recorded_at' => now()->toIso8601String(),
             ],
         ]);
+
+        $isStale = $trip->status === 'in_transit'&& ( !$trip->last_ping_at || $trip->last_ping_at->lt(now()->subMinutes(2)) );
     }
 }

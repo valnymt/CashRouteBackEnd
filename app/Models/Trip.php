@@ -8,6 +8,15 @@ use Illuminate\Database\Eloquent\Model;
 class Trip extends Model
 {
     protected $guarded = ['id'];
+    protected $fillable = [
+        // Keep the model's existing fillable fields...
+        'accepted_at',
+        'current_lat',
+        'current_lng',
+        'last_ping_at',
+        'status',
+        'started_at',
+    ];
 
     protected function casts(): array
     {

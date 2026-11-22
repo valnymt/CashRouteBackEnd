@@ -7,6 +7,7 @@ use App\Mail\HandoverOtpMail;
 use App\Models\CashRequest;
 use App\Models\Otp;
 use App\Models\OtpAttempt;
+use App\Models\Trip;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -36,6 +37,12 @@ class OtpController extends Controller
         // Only an authenticated delivery-team member assigned to an accepted trip
         // may request a handover code for that cash request.
         $trip = $cashRequest->trip;
+
+        if ($trip) {
+            $trip = Trip::whereKey($trip->id)
+                ->lockForUpdate()
+                ->first();
+        }
 
         abort_unless(
             $user->is_delivery_member && $trip,
@@ -169,6 +176,12 @@ class OtpController extends Controller
                     'http' => 403,
                 ];
             }
+            if ($otp->stage === 'pickup' && $trip->status !== 'assigned') {
+                return [
+                    'error' => 'Pickup verification is only allowed for an assigned trip.',
+                    'http' => 422,
+                ];
+            }
 
             if ($otp->status !== 'pending') {
                 return [
@@ -224,10 +237,23 @@ class OtpController extends Controller
                 ];
             }
 
+            $verifiedAt = now();
+
             $otp->update([
                 'status' => 'verified',
-                'verified_at' => now(),
+                'verified_at' => $verifiedAt,
             ]);
+
+            if ($otp->stage === 'pickup') {
+                $trip->update([
+                    'status' => 'in_transit',
+                    'started_at' => $trip->started_at ?? $verifiedAt,
+                ]);
+                 // Use the trip's cash_request_id relationship, not the trip's own id.
+                $trip->cashRequest()->update([
+                    'status' => 'in_transit',
+                ]);
+            }
 
             return [
                 'success' => true,

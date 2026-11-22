@@ -22,16 +22,16 @@ class TripResource extends JsonResource
             if (!$location) {
                 return null;
             }
-
+            
             return [
                 'name' => $location->name,
                 'code' => $location->code,
                 'address' => $location->address,
                 'latitude' => $location->lat,
                 'longitude' => $location->lng,
+                'handoverRadius' => (int) $location->handover_radius,
             ];
         };
-
         // Determine the delivery direction.
         if ($cr?->type === 'deposit') {
             $pickup = $branch;
