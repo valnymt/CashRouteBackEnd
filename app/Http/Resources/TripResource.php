@@ -62,8 +62,14 @@ class TripResource extends JsonResource
 
             'pickup' => $formatLocation($pickup),
             'dropoff' => $formatLocation($dropoff),
-
-            'teamId' => (string) $this->team_id,
+            'currentLatitude' => $this->current_lat !== null
+                ? (float) $this->current_lat
+                : null,
+            'currentLongitude' => $this->current_lng !== null
+                ? (float) $this->current_lng
+                : null,
+            'lastPingAt' => $this->last_ping_at?->toIso8601String(),
+            'teamId' => $this->team_id !== null ? (string) $this->team_id : null,
             'amount' => (float) ($cr?->amount ?? 0),
             'currency' => $cr?->currency ?? 'MMK',
 

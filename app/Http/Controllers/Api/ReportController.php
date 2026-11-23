@@ -102,7 +102,28 @@ public function trips(Request $request)
     return TripResource::collection($q->get());
 }
 
+/** GET /api/trips/live — active trips for Admin Portal live monitoring. */
+public function liveTrips(Request $request)
+{
+    // This endpoint is for the Admin Portal, not delivery-team mobile users.
+    if ($request->user()->is_delivery_member) {
+        abort(403, 'This endpoint is for Admin Portal users.');
+    }
 
+    $request->attributes->set(
+        'hqBranch',
+        Branch::where('is_hq', true)->firstOrFail()
+    );
+
+    $trips = Trip::with(['cashRequest.branch', 'team'])
+        ->whereIn('status', ['assigned', 'in_transit'])
+        ->whereNotNull('current_lat')
+        ->whereNotNull('current_lng')
+        ->orderByDesc('last_ping_at')
+        ->get();
+
+    return TripResource::collection($trips);
+}
 
     /** GET /api/trips/{reference} — detail by request reference. */
     public function showTrip(string $reference)

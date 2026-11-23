@@ -47,33 +47,24 @@ class TripController extends Controller
             409,
             'GPS updates are only accepted for trips in transit.'
         );
+
         $recordedAt = now();
 
-        $trip->update([
-            'current_lat'  => $data['latitude'],
-            'current_lng'  => $data['longitude'],
-            'last_ping_at' => $recordedAt,
-        ]);
-
-
-        DB::transaction(function () use ($trip, $data) {
-            $recordedAt = now();
-
+        DB::transaction(function () use ($trip, $data, $recordedAt) {
             $trip->update([
                 'current_lat'  => $data['latitude'],
                 'current_lng'  => $data['longitude'],
                 'last_ping_at' => $recordedAt,
             ]);
-
             TripLocation::create([
-                'trip_id'    => $trip->id,
-                'lat'        => $data['latitude'],
-                'lng'        => $data['longitude'],
-                'accuracy_m' => $data['accuracy'] ?? null,
+                'trip_id'     => $trip->id,
+                'lat'         => $data['latitude'],
+                'lng'         => $data['longitude'],
+                'accuracy_m'  => $data['accuracy'] ?? null,
                 'recorded_at' => $recordedAt,
             ]);
         });
-
+        
         return response()->json([
             'message' => 'Location updated successfully.',
             'reference' => $reference,
@@ -81,10 +72,9 @@ class TripController extends Controller
                 'latitude' => (float) $data['latitude'],
                 'longitude' => (float) $data['longitude'],
                 'accuracy' => $data['accuracy'] ?? null,
-                'recorded_at' => now()->toIso8601String(),
+                'recorded_at' => $recordedAt->toIso8601String(),
             ],
         ]);
-
         $isStale = $trip->status === 'in_transit'&& ( !$trip->last_ping_at || $trip->last_ping_at->lt(now()->subMinutes(2)) );
     }
 }
