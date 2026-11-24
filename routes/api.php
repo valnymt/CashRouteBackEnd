@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/trips/{reference}', [ReportController::class, 'showTrip']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
     Route::post('/trips/{reference}/location',[TripController::class, 'updateLocation']);
+    Route::post('/trips/{reference}/proof', [TripController::class, 'submitProof']);
 
     // OTP (mobile app — pickup/dropoff handover)
     Route::post('/cash-requests/{cashRequest}/otp', [OtpController::class, 'generate']);

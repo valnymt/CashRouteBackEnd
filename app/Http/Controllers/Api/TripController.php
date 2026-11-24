@@ -7,6 +7,7 @@ use App\Models\Trip;
 use App\Models\TripLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class TripController extends Controller
 {
@@ -77,4 +78,82 @@ class TripController extends Controller
         ]);
         $isStale = $trip->status === 'in_transit'&& ( !$trip->last_ping_at || $trip->last_ping_at->lt(now()->subMinutes(2)) );
     }
+    
+    /**
+ * POST /api/trips/{reference}/proof
+ * Save proof of delivery and complete the trip.
+ */
+public function submitProof(Request $request, string $reference)
+{
+    $data = $request->validate([
+        'photo' => ['required', 'image', 'max:10240'],
+        'confirmed_amount' => ['required', 'numeric', 'min:0'],
+    ]);
+
+    $user = $request->user();
+
+    $trip = Trip::whereHas(
+        'cashRequest',
+        fn ($query) => $query->where('reference', $reference)
+    )->firstOrFail();
+
+    $isTeamMember = DB::table('team_members')
+        ->where('team_id', $trip->team_id)
+        ->where('user_id', $user->id)
+        ->exists();
+
+    abort_unless(
+        $user->is_delivery_member && $isTeamMember,
+        403,
+        'You are not a member of the team assigned to this trip.'
+    );
+
+    abort_unless(
+        $trip->status === 'in_transit',
+        409,
+        'Only trips in transit can submit proof of delivery.'
+    );
+
+    // Store the image on Laravel's private local disk.
+    $photoPath = $request->file('photo')->store('handover-proofs', 'local');
+
+    try {
+        DB::transaction(function () use ($trip, $user, $data, $photoPath) {
+            $now = now();
+
+            $proofId = DB::table('handover_proofs')->insertGetId([
+                'cash_request_id' => $trip->cash_request_id,
+                'stage' => 'dropoff',
+                'confirmed_amount' => $data['confirmed_amount'],
+                'submitted_by' => $user->id,
+                'submitted_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            DB::table('handover_photos')->insert([
+                'handover_proof_id' => $proofId,
+                'path' => $photoPath,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $trip->update([
+                'status' => 'completed',
+                'completed_at' => $now,
+            ]);
+        });
+    } catch (\Throwable $e) {
+        // Remove the stored file if saving the database records failed.
+        Storage::disk('local')->delete($photoPath);
+
+        throw $e;
+    }
+
+    return response()->json([
+        'message' => 'Proof of delivery submitted successfully.',
+        'reference' => $reference,
+        'status' => 'completed',
+    ]);
+}
 }
