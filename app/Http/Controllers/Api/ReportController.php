@@ -137,9 +137,24 @@ public function liveTrips(Request $request)
 
         $user = request()->user();
         abort_if($user->is_delivery_member && !$trip->hasDeliveryMember($user), 403);
+        if (!$user->is_delivery_member) {
+            $trip->load('assignedBy');
+            $trip->cashRequest->load([
+                'creator',
+                'approver',
+                'canceller',
+                'auditLogs' => fn ($query) => $query
+                    ->whereIn('action', ['assign', 'reassign', 'accept', 'arrival.pickup', 'arrival.dropoff'])
+                    ->orderBy('id')->with('user'),
+                'verifiedHandoverOtps.attemptLogs' => fn ($query) => $query
+                    ->where('is_success', true)->orderByDesc('attempted_at')->orderByDesc('id')->with('user'),
+            ]);
+        }
+
         if ($trip->canViewHandoverProof($user)) {
             $trip->cashRequest->load(['handoverProofs' => fn ($query) => $query
-                ->where('stage', 'dropoff')->latest('id')->limit(1)->with('photos')]);
+                ->where('stage', 'dropoff')->latest('id')->limit(1)
+                ->with($user->is_delivery_member ? ['photos'] : ['photos', 'submittedBy'])]);
         }
 
         return new TripResource($trip);

@@ -51,6 +51,38 @@ class TripResource extends JsonResource
         $pickupVerified = $verifiedOtps->get('pickup')?->verified_at;
         $dropoffVerified = $verifiedOtps->get('dropoff')?->verified_at;
 
+        $proof = $cr?->relationLoaded('handoverProofs') ? $cr->handoverProofs->first() : null;
+        $includeActors = $cr?->relationLoaded('auditLogs');
+        $actors = [];
+        $roster = null;
+        if ($includeActors) {
+            $assignment = $cr->auditLogs->last(fn ($entry) => in_array($entry->action, ['assign', 'reassign'], true));
+            $snapshot = $assignment?->details['roster'] ?? null;
+            if (isset($snapshot['team_id'], $snapshot['members']) && (int) $snapshot['team_id'] === (int) $this->team_id) {
+                $roster = $snapshot;
+            }
+
+            $auditActor = fn ($action, $at) => $at ? $cr->auditLogs->last(fn ($entry) =>
+                $entry->action === $action
+                && ($entry->details['at'] ?? $entry->created_at?->toIso8601String()) === $at->toIso8601String()
+            )?->user?->name : null;
+            $otpActor = fn ($stage) => $verifiedOtps->get($stage)?->attemptLogs->first()?->user?->name;
+
+            $actors = [
+                'request_created' => $cr->creator?->name,
+                'request_approved' => $cr->approver?->name,
+                'assigned' => $this->assignedBy?->name,
+                'accepted' => $auditActor('accept', $this->accepted_at),
+                'pickup_arrival' => $auditActor('arrival.pickup', $this->arrived_pickup_at),
+                'pickup_verified' => $otpActor('pickup'),
+                'departed' => $started && $pickupVerified && $started->equalTo($pickupVerified) ? $otpActor('pickup') : null,
+                'dropoff_arrival' => $auditActor('arrival.dropoff', $this->arrived_dropoff_at),
+                'dropoff_verified' => $otpActor('dropoff'),
+                'completed' => $proof?->submittedBy?->name,
+                'cancelled' => $cr->canceller?->name,
+            ];
+        }
+
         $events = collect([
             ['request_created', 'Request created', $cr?->created_at],
             ['request_approved', 'Request approved', $cr?->approved_at],
@@ -65,11 +97,19 @@ class TripResource extends JsonResource
             ['cancelled', 'Request cancelled', $this->status === 'cancelled' ? $cr?->cancelled_at : null],
         ])->filter(fn ($event) => $event[2] !== null)
             ->sortBy(fn ($event) => $event[2]->getTimestamp())
-            ->map(fn ($event) => ['kind' => $event[0], 'label' => $event[1], 'at' => $event[2]->toIso8601String()])
+            ->map(fn ($event) => [
+                'kind' => $event[0],
+                'label' => $event[1],
+                'at' => $event[2]->toIso8601String(),
+            ] + ($includeActors ? ['actor' => $actors[$event[0]] ?? null] : []))
             ->values();
 
         return [
             'timeline' => $events,
+            'teamRoster' => $this->when($includeActors, $roster),
+            'startedAt' => $started?->toIso8601String(),
+            'requestedDate' => $cr?->requested_date?->toDateString(),
+            'dueAt' => $cr?->due_at?->toIso8601String(),
             'arrivedPickupAt' => $this->arrived_pickup_at?->toIso8601String(),
             'arrivedDropoffAt' => $this->arrived_dropoff_at?->toIso8601String(),
             'pickupVerifiedAt' => $pickupVerified?->toIso8601String(),
@@ -111,15 +151,14 @@ class TripResource extends JsonResource
                 : 0,
 
             'onTime' => (bool) ($this->is_on_time ?? false),
-            'proof_of_delivery' => $this->when($cr?->relationLoaded('handoverProofs'), function () use ($cr) {
-                $proof = $cr->handoverProofs->first();
+            'proof_of_delivery' => $this->when($cr?->relationLoaded('handoverProofs'), function () use ($proof, $includeActors) {
                 return $proof ? [
                     'confirmed_amount' => $proof->confirmed_amount,
                     'receiver_name' => $proof->receiver_name,
                     'submitted_at' => $proof->submitted_at->toIso8601String(),
                     'photo_ids' => $proof->photos->modelKeys(),
                     'has_signature' => (bool) $proof->signature_path,
-                ] : null;
+                ] + ($includeActors ? ['submitted_by' => $proof->submittedBy?->name] : []) : null;
             }),
         ];
     }

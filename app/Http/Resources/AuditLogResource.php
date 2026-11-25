@@ -20,6 +20,8 @@ class AuditLogResource extends JsonResource
         'completed'    => 'Completed',
         'delivered'    => 'Completed',
         'accept'       => 'In Transit',
+        'arrival.pickup' => 'Pickup arrival',
+        'arrival.dropoff' => 'Drop-off arrival',
         'otp.verified' => 'In Transit',
     ];
 

@@ -7,11 +7,84 @@ use App\Models\Branch;
 use App\Models\CashRequest;
 use App\Models\Trip;
 use App\Models\TripLocation;
+use App\Support\Audit;
 use Illuminate\Http\Request;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class TripController extends Controller
 {
+    public function route(Request $request, string $reference)
+    {
+        $user = $request->user();
+        $trip = Trip::with('cashRequest.branch')
+            ->whereHas('cashRequest', fn ($query) => $query->where('reference', $reference))->firstOrFail();
+        $member = $trip->hasDeliveryMember($user);
+        abort_unless($member || $user->hasPermission('monitoring.view'), 403);
+        abort_unless($trip->accepted_at && in_array($trip->status, ['assigned', 'in_transit'], true),
+            409, 'Routing is available after trip acceptance.');
+
+        $pickup = $trip->status === 'assigned';
+        $atBranch = ($trip->cashRequest->type === 'deposit') === $pickup;
+        $stop = $atBranch ? $trip->cashRequest->branch : Branch::where('is_hq', true)->first();
+        abort_unless($stop && $stop->lng !== null && $stop->lat !== null, 422, 'The handover stop is missing coordinates.');
+
+        if ($pickup) {
+            $data = $request->validate([
+                'latitude' => 'nullable|required_with:longitude|numeric|between:-90,90',
+                'longitude' => 'nullable|required_with:latitude|numeric|between:-180,180',
+            ]);
+            $latitude = $member ? ($data['latitude'] ?? null) : null;
+            $longitude = $member ? ($data['longitude'] ?? null) : null;
+        } else {
+            $latitude = $trip->current_lat;
+            $longitude = $trip->current_lng;
+        }
+
+        if ($latitude === null || $longitude === null) {
+            return response()->json(['data' => null])->header('Cache-Control', 'no-store');
+        }
+
+        $coordinates = sprintf('%.5F,%.5F;%.5F,%.5F', $longitude, $latitude, $stop->lng, $stop->lat);
+        $key = "trip-route:{$trip->id}:{$trip->status}";
+        $cached = Cache::get($key);
+        if (($cached['coordinates'] ?? null) === $coordinates) {
+            return response()->json(['data' => $cached['route']])->header('Cache-Control', 'no-store');
+        }
+
+        foreach (['https://router.project-osrm.org', 'https://routing.openstreetmap.de/routed-car'] as $provider) {
+            try {
+                $response = Http::acceptJson()->connectTimeout(2)->timeout(4)
+                    ->get("{$provider}/route/v1/driving/{$coordinates}", [
+                        'overview' => 'full',
+                        'geometries' => 'geojson',
+                    ]);
+            } catch (ConnectionException) {
+                continue;
+            }
+
+            $route = $response->json('routes.0');
+            if (!$response->successful() || $response->json('code') !== 'Ok'
+                || ($route['geometry']['type'] ?? null) !== 'LineString'
+                || count($route['geometry']['coordinates'] ?? []) < 2) {
+                continue;
+            }
+
+            $result = [
+                'geometry' => $route['geometry'],
+                'distance' => $route['distance'],
+                'duration' => $route['duration'],
+            ];
+            Cache::put($key, ['coordinates' => $coordinates, 'route' => $result], now()->addMinutes(2));
+
+            return response()->json(['data' => $result])->header('Cache-Control', 'no-store');
+        }
+
+        return response()->json(['message' => 'Unable to find a road route from the current GPS position.'], 503);
+    }
+
     public function track(Request $request, string $reference)
     {
         abort_unless($request->user()->hasPermission('monitoring.view'), 403);
@@ -62,7 +135,10 @@ class TripController extends Controller
             $distance = 6371000 * 2 * asin(sqrt(min(1, $a)));
 
             abort_if($distance > $destination->handover_radius, 422, 'Move closer to the handover location.');
-            $trip->update([$column => now()]);
+            $arrivedAt = now();
+            $trip->update([$column => $arrivedAt]);
+            Audit::log('arrival.'.$data['stage'], $cashRequest, ['at' => $arrivedAt->toIso8601String()],
+                'mobile', (float) $data['latitude'], (float) $data['longitude'], $user->id);
         });
 
         return response()->noContent();

@@ -18,6 +18,9 @@ class HandoverProofTest extends TestCase
             'database.connections.handover_test' => ['driver' => 'sqlite', 'database' => ':memory:'],
         ]);
         $tables = [
+            'users' => 'id integer primary key, name text',
+            'audit_logs' => 'id integer primary key, cash_request_id integer, user_id integer, action text, details text, created_at text',
+            'otp_attempts' => 'id integer primary key, otp_id integer, user_id integer, is_success boolean, attempted_at text',
             'cash_requests' => 'id integer primary key, reference text, amount decimal, status text, completed_at text, updated_at text',
             'trips' => 'id integer primary key, cash_request_id integer, team_id integer, status text, accepted_at text, completed_at text, is_on_time boolean, updated_at text',
             'teams' => 'id integer primary key, status text, updated_at text',
@@ -31,6 +34,7 @@ class HandoverProofTest extends TestCase
         foreach ($tables as $table => $columns) {
             DB::statement("create table {$table} ({$columns})");
         }
+        DB::table('users')->insert([['id' => 1, 'name' => 'Proof submitter'], ['id' => 2, 'name' => 'OTP verifier']]);
         DB::table('cash_requests')->insert(['id' => 1, 'reference' => 'REQ-TEST', 'amount' => 250000, 'status' => 'in_transit']);
         DB::table('teams')->insert(['id' => 1, 'status' => 'on_trip']);
         DB::table('branches')->insert(['id' => 1, 'is_hq' => true]);
@@ -67,6 +71,7 @@ class HandoverProofTest extends TestCase
         DB::table('otps')->insert([
             'cash_request_id' => 1, 'stage' => 'dropoff', 'status' => 'verified', 'verified_at' => now(),
         ]);
+        DB::table('otp_attempts')->insert(['otp_id' => 1, 'user_id' => 2, 'is_success' => true, 'attempted_at' => now()]);
         $submit()->assertCreated()->assertJsonPath('status', 'completed');
         $this->assertDatabaseHas('teams', ['id' => 1, 'status' => 'available']);
 
@@ -93,9 +98,28 @@ class HandoverProofTest extends TestCase
         $this->getJson('/api/trips/REQ-TEST')->assertForbidden();
         $this->getJson($image)->assertForbidden();
         $user->is_delivery_member = false;
+        $this->getJson('/api/trips/REQ-TEST')->assertOk()->assertJsonPath('data.teamRoster', null);
+
+        $snapshot = [
+            'team_id' => 1,
+            'team_name' => 'Original team name',
+            'members' => [
+                ['employee_id' => 'U-101', 'name' => 'Original custodian', 'role' => 'Custodian', 'is_leader' => true],
+            ],
+        ];
+        DB::table('audit_logs')->insert([
+            'cash_request_id' => 1, 'user_id' => 1, 'action' => 'assign', 'created_at' => now()->subDays(2),
+            'details' => json_encode(['roster' => $snapshot]),
+        ]);
+        DB::table('team_members')->where('team_id', 1)->update(['user_id' => 2]);
+
         $this->getJson('/api/trips/REQ-TEST')->assertOk()
             ->assertJsonPath('data.proof_of_delivery.photo_ids', [1])
-            ->assertJsonPath('data.proof_of_delivery.receiver_name', 'Receiver');
+            ->assertJsonPath('data.proof_of_delivery.receiver_name', 'Receiver')
+            ->assertJsonPath('data.proof_of_delivery.submitted_by', 'Proof submitter')
+            ->assertJsonPath('data.teamRoster', $snapshot)
+            ->assertJsonFragment(['kind' => 'dropoff_verified', 'actor' => 'OTP verifier'])
+            ->assertJsonFragment(['kind' => 'completed', 'actor' => 'Proof submitter']);
         $this->get($image)->assertOk()->assertHeader('Content-Type', 'image/png');
         $this->get('/api/trips/REQ-TEST/proof-of-delivery/signature')->assertOk()->assertHeader('Content-Type', 'image/png');
     }
