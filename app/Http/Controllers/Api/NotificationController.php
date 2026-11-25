@@ -55,7 +55,28 @@ class NotificationController extends Controller
             }
         }
 
+        $team = null;
+        if (in_array($notice->type, ['team.joined', 'team.updated', 'team.leader_changed'], true)
+            && $request->user()->is_delivery_member) {
+            $teams = $request->user()->teams()->with('members.role');
+            if (preg_match('~^/users/teams\?team=(\d+)$~', $notice->link ?? '', $matches)) {
+                $team = $teams->where('teams.id', $matches[1])->first();
+            } elseif ($notice->type === 'team.joined') {
+                $team = $teams->get()->first(fn ($item) => $notice->body === "You were added to {$item->name}.");
+            }
+        }
+
         return (new UserNotificationResource($notice))->additional([
+            'team' => $team ? [
+                'name' => $team->name,
+                'members' => $team->members->map(fn ($member) => [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'role' => $member->role?->name,
+                    'phone' => $member->phone,
+                    'is_leader' => (int) $team->leader_user_id === (int) $member->id,
+                ])->values(),
+            ] : null,
             'reference' => $cashRequest?->reference,
             'assignment' => $assignment,
             'cancelReason' => $notice->type === 'request.cancelled' ? $cashRequest?->cancel_reason : null,

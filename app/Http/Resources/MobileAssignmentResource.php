@@ -48,6 +48,7 @@ class MobileAssignmentResource extends JsonResource
                     'name' => $member->name,
                     'role' => $member->role?->name,
                     'phone' => $member->phone,
+                    'is_leader' => (int) $team->leader_user_id === (int) $member->id,
                 ])->values(),
             ] : null,
 

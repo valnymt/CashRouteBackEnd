@@ -27,6 +27,8 @@ class TripResource extends JsonResource
                 'name' => $location->name,
                 'code' => $location->code,
                 'address' => $location->address,
+                'contactName' => $location->contact_name,
+                'contactPhone' => $location->contact_phone,
                 'latitude' => $location->lat,
                 'longitude' => $location->lng,
                 'handoverRadius' => (int) $location->handover_radius,

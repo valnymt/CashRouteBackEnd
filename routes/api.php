@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/trips', [ReportController::class, 'trips']);
     Route::get('/trips/live', [ReportController::class, 'liveTrips']);
     Route::get('/trips/{reference}', [ReportController::class, 'showTrip']);
+    Route::get('/trips/{reference}/track', [TripController::class, 'track']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
     Route::post('/trips/{reference}/arrival', [TripController::class, 'arrive']);
     Route::post('/trips/{reference}/location',[TripController::class, 'updateLocation']);

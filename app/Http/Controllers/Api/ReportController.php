@@ -117,8 +117,6 @@ public function liveTrips(Request $request)
 
     $trips = Trip::with(['cashRequest.branch', 'team'])
         ->whereIn('status', ['assigned', 'in_transit'])
-        ->whereNotNull('current_lat')
-        ->whereNotNull('current_lng')
         ->orderByDesc('last_ping_at')
         ->get();
 

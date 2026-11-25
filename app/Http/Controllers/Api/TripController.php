@@ -12,6 +12,17 @@ use Illuminate\Support\Facades\DB;
 
 class TripController extends Controller
 {
+    public function track(Request $request, string $reference)
+    {
+        abort_unless($request->user()->hasPermission('monitoring.view'), 403);
+        $trip = Trip::whereHas('cashRequest', fn ($query) => $query->where('reference', $reference))
+            ->firstOrFail();
+        $points = $trip->locations()->reorder('recorded_at', 'desc')->orderByDesc('id')
+            ->limit(500)->get(['lat', 'lng'])->reverse()->values();
+
+        return response()->json(['data' => $points->map(fn ($point) => [$point->lng, $point->lat])]);
+    }
+
     public function arrive(Request $request, string $reference)
     {
         $data = $request->validate([

@@ -99,11 +99,13 @@ class TeamController extends Controller
         Audit::log('team.leader_changed', null, ['team' => $team->name, 'leader' => $leader->name]);
         DeliveryNotifications::send([$leader->id], [
             'type' => 'team.leader_changed',
+            'link' => '/users/teams?team='.$team->id,
             'title' => 'You are the delivery team leader',
             'body' => "You can now accept assignments for {$team->name}.",
         ]);
         DeliveryNotifications::send($team->members()->where('users.id', '!=', $leader->id)->pluck('users.id'), [
             'type' => 'team.leader_changed',
+            'link' => '/users/teams?team='.$team->id,
             'title' => 'Delivery team leader updated',
             'body' => "{$leader->name} is now the leader of {$team->name} and can accept assignments.",
         ]);
@@ -189,6 +191,7 @@ class TeamController extends Controller
             DeliveryNotifications::send($old->members()->pluck('users.id'), [
                 'type' => 'team.updated',
                 'title' => 'Delivery team updated',
+                'link' => '/users/teams?team='.$old->id,
                 'body' => "The membership of {$old->name} has changed.",
             ]);
         }
@@ -209,6 +212,7 @@ class TeamController extends Controller
         $current = $members->pluck('id');
         DeliveryNotifications::send($current->diff($previous), [
             'type' => 'team.joined',
+            'link' => '/users/teams?team='.$team->id,
             'title' => 'Added to a delivery team',
             'body' => "You were added to {$team->name}.",
         ]);
@@ -222,6 +226,7 @@ class TeamController extends Controller
             DeliveryNotifications::send($previous->intersect($current), [
                 'type' => 'team.updated',
                 'title' => $confirm && !$wasConfirmed ? 'Delivery team confirmed' : 'Delivery team updated',
+                'link' => '/users/teams?team='.$team->id,
                 'body' => "Review your delivery team {$team->name} in CashRoute.",
             ]);
         }
