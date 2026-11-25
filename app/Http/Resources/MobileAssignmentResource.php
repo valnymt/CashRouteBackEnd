@@ -70,6 +70,11 @@ class MobileAssignmentResource extends JsonResource
             ],
 
             'assigned_at' => $cashRequest->trip?->assigned_at?->toIso8601String(),
+            'leader_name' => $team?->members->firstWhere('id', $team->leader_user_id)?->name,
+            'can_accept' => $team?->members->contains(fn ($member) => (int) $member->id === (int) $team->leader_user_id
+                && $member->is_active && $member->is_delivery_member && $member->role?->name === 'Custodian') === true
+                && (int) $team->leader_user_id === (int) $request->user()?->id
+                && $cashRequest->trip?->accepted_at === null,
             'accepted_at' => $cashRequest->trip?->accepted_at?->toIso8601String(),
         ];
     }

@@ -54,14 +54,65 @@ class TeamController extends Controller
 
         $data = $this->validated($request, $team);
 
-        DB::transaction(function () use ($team, $data, $request) {
+        $team = DB::transaction(function () use ($team, $data, $request) {
+            $team = Team::whereKey($team->id)->lockForUpdate()->firstOrFail();
+            $this->ensureEditable($team);
             $team->update(['name' => $data['name']]);
             $this->saveMembers($team, $data, $request->user());
+
+            return $team;
         });
 
         Audit::log('team.update', null, ['team' => $team->name, 'confirmed' => $team->is_confirmed]);
 
         return new TeamResource($team->load('members'));
+    }
+
+    public function setLeader(Request $request, string $id)
+    {
+        abort_unless($request->user()->hasPermission('teams.manage'), 403, 'You are not allowed to manage teams.');
+        $data = $request->validate(['leaderId' => ['required', 'string', 'max:20']]);
+
+        $team = DB::transaction(function () use ($id, $data) {
+            $team = Team::whereKey($id)->lockForUpdate()->firstOrFail();
+            $this->ensureEditable($team);
+            $leader = $team->members()->where('users.employee_id', $data['leaderId'])->first();
+            if (!$leader || !$leader->is_active || !$leader->is_delivery_member || $leader->role?->name !== 'Custodian') {
+                throw ValidationException::withMessages(['leaderId' => 'Choose an active custodian from this delivery team.']);
+            }
+
+            if ((int) $team->leader_user_id === (int) $leader->id) {
+                return $team;
+            }
+
+            $team->update(['leader_user_id' => $leader->id]);
+            $this->notifyLeaderChange($team, $leader);
+
+            return $team;
+        });
+
+        return new TeamResource($team->load('members'));
+    }
+
+    private function notifyLeaderChange(Team $team, User $leader): void
+    {
+        Audit::log('team.leader_changed', null, ['team' => $team->name, 'leader' => $leader->name]);
+        DeliveryNotifications::send([$leader->id], [
+            'type' => 'team.leader_changed',
+            'title' => 'You are the delivery team leader',
+            'body' => "You can now accept assignments for {$team->name}.",
+        ]);
+        DeliveryNotifications::send($team->members()->where('users.id', '!=', $leader->id)->pluck('users.id'), [
+            'type' => 'team.leader_changed',
+            'title' => 'Delivery team leader updated',
+            'body' => "{$leader->name} is now the leader of {$team->name} and can accept assignments.",
+        ]);
+    }
+
+    private function ensureEditable(Team $team): void
+    {
+        abort_if($team->status === 'on_trip' || $team->trips()->whereIn('status', ['assigned', 'in_transit'])->exists(),
+            409, 'The team and its leader cannot be changed during an active delivery.');
     }
 
     private function validated(Request $request, ?Team $team = null): array
@@ -71,6 +122,7 @@ class TeamController extends Controller
             'memberIds' => ['present', 'array'],
             'memberIds.*' => ['string', Rule::exists('users', 'employee_id')],
             'confirmed' => ['sometimes', 'boolean'],
+            'leaderId' => [$team ? 'sometimes' : 'required', 'required', 'string', 'max:20'],
         ]);
     }
 
@@ -106,12 +158,28 @@ class TeamController extends Controller
             throw ValidationException::withMessages(['members' => $error]);
         }
 
+        $leader = isset($data['leaderId'])
+            ? $members->firstWhere('employee_id', $data['leaderId'])
+            : $members->firstWhere('id', $team->leader_user_id);
+        if ($leader && (!$leader->is_active || !$leader->is_delivery_member || $leader->role?->name !== 'Custodian')) {
+            $leader = null;
+        }
+        if (!$leader && (isset($data['leaderId']) || $confirm)) {
+            throw ValidationException::withMessages(['leaderId' => 'Select an active custodian on this team as its leader.']);
+        }
+        $leaderChanged = $leader && (int) $leader->id !== (int) $team->leader_user_id;
+
         // Moving someone out of another team turns that team back into a draft (same as the portal).
         $changedTeams = collect();
         foreach ($members as $m) {
             $old = $m->teams->first();
             if ($old && $old->id !== $team->id) {
+                $old = Team::whereKey($old->id)->lockForUpdate()->firstOrFail();
+                $this->ensureEditable($old);
                 $old->members()->detach($m->id);
+                if ((int) $old->leader_user_id === (int) $m->id) {
+                    $old->update(['leader_user_id' => null]);
+                }
                 $changedTeams->put($old->id, $old);
             }
         }
@@ -126,6 +194,12 @@ class TeamController extends Controller
         }
 
         $team->members()->sync($members->pluck('id'));
+        if ($leaderChanged || (!$leader && $team->leader_user_id)) {
+            $team->update(['leader_user_id' => $leader?->id]);
+        }
+        if ($leaderChanged) {
+            $this->notifyLeaderChange($team, $leader);
+        }
         $team->update([
             'is_confirmed' => $confirm,
             'confirmed_at' => $confirm ? now() : null,

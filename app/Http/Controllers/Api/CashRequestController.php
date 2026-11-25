@@ -281,11 +281,16 @@ class CashRequestController extends Controller
         }
         abort_if($team->status !== 'available', 409, "{$team->name} is on a trip.");
         abort_unless($team->is_confirmed, 409, "{$team->name} isn't confirmed yet. Confirm it in Delivery Teams first.");
+        abort_unless($team->eligibleLeader()->exists(), 422, 'Select a custodian as this team’s leader before assigning a request.');
         // All members share one branch, so any member's branch is the team's.
         $teamBranch = $team->members()->value('users.branch_id');
         abort_unless($teamBranch !== null && (int) $teamBranch === (int) $r->branch_id, 422, "{$team->name} is not from {$r->branch->name}. Assign a team from the request's branch.");
 
         DB::transaction(function () use ($r, $team, $me, $reassigning) {
+            $team = Team::whereKey($team->id)->lockForUpdate()->firstOrFail();
+            abort_if($team->status !== 'available', 409, 'This team is already on a trip.');
+            abort_unless($team->is_confirmed && $team->eligibleLeader()->exists(), 422,
+                'Confirm this team and select a custodian as its leader before assigning a request.');
             if ($reassigning && $r->trip) {
                 $oldTeam = Team::with('members')->find($r->trip->team_id);
                 $oldTeamName = $oldTeam?->name ?? 'previous team';
@@ -407,9 +412,31 @@ class CashRequestController extends Controller
                 'You do not belong to the team assigned to this request.'
             );
 
-            $trip->update([
-                'accepted_at' => now(),
+            $team = Team::whereKey($trip->team_id)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $team->leader_user_id === (int) $me->id && $team->eligibleLeader()->exists(), 403,
+                'Only the assigned team leader can accept this request.');
+
+            $trip->update(['accepted_at' => now()]);
+            Audit::log('accept', $r, ['leader' => $me->name], 'mobile');
+            $body = "{$me->name} accepted {$r->reference} for {$team->name}.";
+            DeliveryNotifications::send($team->members()->where('users.id', '!=', $me->id)->pluck('users.id'), [
+                'cash_request_id' => $r->id,
+                'type' => 'team.accepted',
+                'title' => "Assignment accepted · {$r->reference}",
+                'body' => $body,
             ]);
+
+            $this->notifyMaker($r, 'request.accepted', 'Delivery accepted', $body);
+            if ($trip->assigned_by && (int) $trip->assigned_by !== (int) $r->created_by) {
+                UserNotification::create([
+                    'user_id' => $trip->assigned_by,
+                    'cash_request_id' => $r->id,
+                    'type' => 'request.accepted',
+                    'title' => 'Delivery accepted',
+                    'body' => $body,
+                    'link' => "/approvals/{$r->reference}",
+                ]);
+            }
 
             return $trip->fresh();
         });

@@ -41,7 +41,7 @@ class NotificationController extends Controller
         $cashRequest = $notice->cashRequest;
         $assignment = null;
 
-        if ($cashRequest && in_array($notice->type, ['team.assigned', 'team.reassigned'], true)
+        if ($cashRequest && in_array($notice->type, ['team.assigned', 'team.reassigned', 'team.accepted'], true)
             && in_array($cashRequest->status, ['assigned', 'reassigned', 'in_transit'], true)
             && $cashRequest->trip?->team?->members()->whereKey($request->user()->id)->exists()
         ) {

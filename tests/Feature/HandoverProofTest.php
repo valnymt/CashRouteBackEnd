@@ -85,6 +85,12 @@ class HandoverProofTest extends TestCase
         $this->assertDatabaseHas('cash_requests', ['id' => 1, 'status' => 'completed']);
 
         $image = '/api/trips/REQ-TEST/proof-of-delivery/1';
+        $this->getJson('/api/trips/REQ-TEST')->assertOk()
+            ->assertJsonPath('data.proof_of_delivery.photo_ids', [1]);
+        $this->get($image)->assertOk()->assertHeader('Content-Type', 'image/png');
+
+        $user->id = 2;
+        $this->getJson('/api/trips/REQ-TEST')->assertForbidden();
         $this->getJson($image)->assertForbidden();
         $user->is_delivery_member = false;
         $this->getJson('/api/trips/REQ-TEST')->assertOk()

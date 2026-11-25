@@ -40,6 +40,17 @@ class Trip extends Model
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
+    public function hasDeliveryMember(User $user): bool
+    {
+        return $user->is_delivery_member && $user->teams()->whereKey($this->team_id)->exists();
+    }
+
+    public function canViewHandoverProof(User $user): bool
+    {
+        return $user->hasPermission('reports.view')
+            || ($this->status === 'completed' && $this->hasDeliveryMember($user));
+    }
+
     public function locations()
     {
         return $this->hasMany(TripLocation::class)->orderBy('recorded_at');

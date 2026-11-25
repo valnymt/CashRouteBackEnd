@@ -50,20 +50,20 @@ class TripResource extends JsonResource
         $dropoffVerified = $verifiedOtps->get('dropoff')?->verified_at;
 
         $events = collect([
-            ['Request created', $cr?->created_at],
-            ['Request approved', $cr?->approved_at],
-            ['Team assigned', $this->assigned_at],
-            ['Team accepted', $this->accepted_at],
-            ["Arrived at {$pickupName} (pickup)", $this->arrived_pickup_at],
-            ['Pickup OTP verified', $pickupVerified],
-            ["Departed {$pickupName}", $started],
-            ["Arrived at {$dropoffName} (drop-off)", $this->arrived_dropoff_at],
-            ['Drop-off OTP verified', $dropoffVerified],
-            ["Completed delivery to {$dropoffName}", $completed],
-            ['Request cancelled', $this->status === 'cancelled' ? $cr?->cancelled_at : null],
-        ])->filter(fn ($event) => $event[1] !== null)
-            ->sortBy(fn ($event) => $event[1]->getTimestamp())
-            ->map(fn ($event) => ['label' => $event[0], 'at' => $event[1]->toIso8601String()])
+            ['request_created', 'Request created', $cr?->created_at],
+            ['request_approved', 'Request approved', $cr?->approved_at],
+            ['assigned', 'Team assigned', $this->assigned_at],
+            ['accepted', 'Team accepted', $this->accepted_at],
+            ['pickup_arrival', "Arrived at {$pickupName} (pickup)", $this->arrived_pickup_at],
+            ['pickup_verified', 'Pickup OTP verified', $pickupVerified],
+            ['departed', "Departed {$pickupName}", $started],
+            ['dropoff_arrival', "Arrived at {$dropoffName} (drop-off)", $this->arrived_dropoff_at],
+            ['dropoff_verified', 'Drop-off OTP verified', $dropoffVerified],
+            ['completed', "Completed delivery to {$dropoffName}", $completed],
+            ['cancelled', 'Request cancelled', $this->status === 'cancelled' ? $cr?->cancelled_at : null],
+        ])->filter(fn ($event) => $event[2] !== null)
+            ->sortBy(fn ($event) => $event[2]->getTimestamp())
+            ->map(fn ($event) => ['kind' => $event[0], 'label' => $event[1], 'at' => $event[2]->toIso8601String()])
             ->values();
 
         return [

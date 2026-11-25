@@ -129,9 +129,9 @@ class HandoverProofController extends Controller
 
     public function image(Request $request, string $reference, string $image)
     {
-        abort_unless($request->user()->hasPermission('reports.view'), 403);
-        $proof = CashRequest::where('reference', $reference)->firstOrFail()
-            ->handoverProofs()->where('stage', 'dropoff')->latest('id')->firstOrFail();
+        $cashRequest = CashRequest::where('reference', $reference)->firstOrFail();
+        abort_unless($cashRequest->trip?->canViewHandoverProof($request->user()), 403);
+        $proof = $cashRequest->handoverProofs()->where('stage', 'dropoff')->latest('id')->firstOrFail();
         $path = $image === 'signature' ? $proof->signature_path : $proof->photos()->findOrFail($image)->path;
         $disk = Storage::disk('local');
         abort_unless($path && $disk->exists($path), 404);

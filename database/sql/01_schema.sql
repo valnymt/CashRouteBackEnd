@@ -124,15 +124,23 @@ CREATE TABLE users (
 --    only confirmed, available teams can be assigned. (Checked by the
 --    app when confirming — SQL can't count roles across rows cheaply.)
 -- ---------------------------------------------------------------------
+-- Existing databases: apply this once before using leader selection.
+-- ALTER TABLE teams
+--   ADD COLUMN leader_user_id BIGINT UNSIGNED NULL,
+--   ADD CONSTRAINT fk_teams_leader FOREIGN KEY (leader_user_id)
+--     REFERENCES users(id) ON DELETE SET NULL;
+
 CREATE TABLE teams (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name          VARCHAR(60) NOT NULL UNIQUE,               -- 'Team A'
   status        ENUM('available','on_trip','offline') NOT NULL DEFAULT 'available', -- ERD is_available
+  leader_user_id BIGINT UNSIGNED NULL,
   is_confirmed  BOOLEAN NOT NULL DEFAULT FALSE,            -- "Confirm team"; any member change resets it
   confirmed_at  TIMESTAMP NULL,
   confirmed_by  BIGINT UNSIGNED NULL,
   created_at    TIMESTAMP NULL,
   updated_at    TIMESTAMP NULL,
+  CONSTRAINT fk_teams_leader FOREIGN KEY (leader_user_id) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_teams_confirmed_by FOREIGN KEY (confirmed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 

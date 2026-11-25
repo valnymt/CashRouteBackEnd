@@ -35,6 +35,13 @@ class Team extends Model
             ->update(['status' => 'available']);
     }
 
+    public function eligibleLeader()
+    {
+        return $this->members()->whereKey($this->leader_user_id)
+            ->where('users.is_active', true)->where('users.is_delivery_member', true)
+            ->whereHas('role', fn ($query) => $query->where('name', 'Custodian'));
+    }
+
     public function confirmedBy()
     {
         return $this->belongsTo(User::class, 'confirmed_by');

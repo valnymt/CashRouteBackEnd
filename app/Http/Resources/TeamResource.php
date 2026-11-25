@@ -20,6 +20,7 @@ class TeamResource extends JsonResource
             'name' => $this->name,
             'status' => $this->status === 'on_trip' ? 'On trip' : 'Available',
             'currentRequestId' => $trip?->cashRequest?->reference,
+            'leaderId' => $this->members->firstWhere('id', $this->leader_user_id)?->employee_id,
             'memberIds' => $this->members->pluck('employee_id')->values(),
             'confirmed' => (bool) $this->is_confirmed,
         ];

@@ -137,7 +137,9 @@ public function liveTrips(Request $request)
             ->whereHas('cashRequest', fn ($cr) => $cr->where('reference', $reference))
             ->firstOrFail();
 
-        if (request()->user()->hasPermission('reports.view')) {
+        $user = request()->user();
+        abort_if($user->is_delivery_member && !$trip->hasDeliveryMember($user), 403);
+        if ($trip->canViewHandoverProof($user)) {
             $trip->cashRequest->load(['handoverProofs' => fn ($query) => $query
                 ->where('stage', 'dropoff')->latest('id')->limit(1)->with('photos')]);
         }

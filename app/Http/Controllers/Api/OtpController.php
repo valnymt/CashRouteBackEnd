@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\HandoverOtpMail;
+use App\Models\Branch;
 use App\Models\CashRequest;
 use App\Models\Otp;
 use App\Models\OtpAttempt;
@@ -16,10 +17,37 @@ use Illuminate\Support\Facades\Mail;
 
 class OtpController extends Controller
 {
-    /**
-     * Generate a pickup or dropoff OTP and email it
-     * to the branch contact.
-     */
+    /** Return the authorized handover contact before sending a code. */
+    public function contact(Request $request, CashRequest $cashRequest)
+    {
+        $stage = $request->validate(['stage' => 'required|in:pickup,dropoff'])['stage'];
+        $this->authorizeHandover($request, $cashRequest);
+
+        return response()->json($this->handoverContact($cashRequest, $stage));
+    }
+
+    private function authorizeHandover(Request $request, CashRequest $cashRequest): void
+    {
+        $trip = $cashRequest->trip;
+        abort_unless($trip?->accepted_at && $trip->hasDeliveryMember($request->user()), 403,
+            'You must belong to the accepted delivery team to view or request this OTP.');
+    }
+
+    private function handoverContact(CashRequest $cashRequest, string $stage): array
+    {
+        $atBranch = ($cashRequest->type === 'deposit') === ($stage === 'pickup');
+        $location = $atBranch ? $cashRequest->branch : Branch::where('is_hq', true)->first();
+        $testEmail = app()->environment('local', 'testing') ? config('mail.handover_otp_test_recipient') : null;
+
+        return [
+            'name' => $location?->contact_name,
+            'phone' => $location?->contact_phone,
+            'email' => $testEmail ?: $location?->contact_email,
+            'is_test_recipient' => (bool) $testEmail,
+        ];
+    }
+
+    /** Generate a pickup or drop-off OTP and email it to the handover recipient. */
     public function generate(Request $request, CashRequest $cashRequest)
     {
         $validated = $request->validate([
@@ -27,45 +55,9 @@ class OtpController extends Controller
         ]);
 
         $user = $request->user();
-
-        if (!$user) {
-            return response()->json([
-                'message' => 'Unauthenticated.',
-            ], 401);
-        }
-
-        // Only an authenticated delivery-team member assigned to an accepted trip
-        // may request a handover code for that cash request.
-        $trip = $cashRequest->trip;
-
-        if ($trip) {
-            $trip = Trip::whereKey($trip->id)
-                ->lockForUpdate()
-                ->first();
-        }
-
-        abort_unless(
-            $user->is_delivery_member && $trip,
-            403,
-            'You are not authorized to request an OTP for this cash request.'
-        );
-
-        $isTeamMember = DB::table('team_members')
-            ->where('team_id', $trip->team_id)
-            ->where('user_id', $user->id)
-            ->exists();
-
-        abort_unless(
-            $isTeamMember && $trip->accepted_at !== null,
-            403,
-            'You must belong to the accepted delivery team to request this OTP.'
-        );
-
-        $cashRequest->load('branch');
-
-        // $email = $cashRequest->branch?->contact_email;
-        //for testing only
-        $email = 'yan2392003@gmail.com';
+        $this->authorizeHandover($request, $cashRequest);
+        $contact = $this->handoverContact($cashRequest, $validated['stage']);
+        $email = $contact['email'];
 
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return response()->json([
@@ -127,6 +119,7 @@ class OtpController extends Controller
             'otp_id' => $otp->id,
             'stage' => $otp->stage,
             'expires_at' => $otp->expires_at,
+            'contact' => $contact,
         ], 201);
     }
 

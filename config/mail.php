@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'handover_otp_test_recipient' => env('HANDOVER_OTP_TEST_RECIPIENT'),
 
     /*
     |--------------------------------------------------------------------------

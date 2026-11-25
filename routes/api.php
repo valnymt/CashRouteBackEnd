@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/teams', [TeamController::class, 'index']);
     Route::post('/teams', [TeamController::class, 'store']);
     Route::put('/teams/{id}', [TeamController::class, 'update']);
+    Route::put('/teams/{id}/leader', [TeamController::class, 'setLeader']);
 
     // Branches
     Route::get('/branch-directory', [BranchController::class, 'directory']);
@@ -72,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/trips/{reference}/proof', [HandoverProofController::class, 'storeSinglePhoto']);
 
     // OTP (mobile app — pickup/dropoff handover)
+    Route::get('/cash-requests/{cashRequest}/otp/contact', [OtpController::class, 'contact']);
     Route::post('/cash-requests/{cashRequest}/otp', [OtpController::class, 'generate']);
     Route::post('/otps/verify', [OtpController::class, 'verify']);
     Route::post('/requests/{reference}/proof-of-delivery', [HandoverProofController::class, 'store']);
