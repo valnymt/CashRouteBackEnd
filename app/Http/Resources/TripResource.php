@@ -78,6 +78,16 @@ class TripResource extends JsonResource
                 : 0,
 
             'onTime' => (bool) ($this->is_on_time ?? false),
+            'proof_of_delivery' => $this->when($cr?->relationLoaded('handoverProofs'), function () use ($cr) {
+                $proof = $cr->handoverProofs->first();
+                return $proof ? [
+                    'confirmed_amount' => $proof->confirmed_amount,
+                    'receiver_name' => $proof->receiver_name,
+                    'submitted_at' => $proof->submitted_at->toIso8601String(),
+                    'photo_ids' => $proof->photos->modelKeys(),
+                    'has_signature' => (bool) $proof->signature_path,
+                ] : null;
+            }),
         ];
     }
 }

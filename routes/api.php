@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashRequestController;
+use App\Http\Controllers\Api\HandoverProofController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\ReportController;
@@ -67,11 +68,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/trips/{reference}', [ReportController::class, 'showTrip']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
     Route::post('/trips/{reference}/location',[TripController::class, 'updateLocation']);
-    Route::post('/trips/{reference}/proof', [TripController::class, 'submitProof']);
+    Route::post('/trips/{reference}/proof', [HandoverProofController::class, 'storeSinglePhoto']);
 
     // OTP (mobile app — pickup/dropoff handover)
     Route::post('/cash-requests/{cashRequest}/otp', [OtpController::class, 'generate']);
     Route::post('/otps/verify', [OtpController::class, 'verify']);
+    Route::post('/requests/{reference}/proof-of-delivery', [HandoverProofController::class, 'store']);
+    Route::get('/trips/{reference}/proof-of-delivery/{image}', [HandoverProofController::class, 'image'])
+        ->where('image', 'signature|[0-9]+');
 
     // Audit Trail (AP-09)
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
