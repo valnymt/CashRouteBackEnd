@@ -163,7 +163,7 @@ CREATE TABLE cash_requests (
   complete_within   ENUM('1h','3h','5h','10h','12h','1d','2d') NOT NULL, -- "Complete within" dropdown
   due_at            DATETIME NULL,                         -- requested_date + window; for on-time vs late
   remarks           TEXT NULL,
-  status            ENUM('pending','approved','assigned','in_transit','completed','rejected','cancelled')
+  status            ENUM('pending','approved','assigned','in_transit','completed','rejected','cancelled','reassigned')
                     NOT NULL DEFAULT 'pending',
   created_by        BIGINT UNSIGNED NOT NULL,              -- Maker
   approved_by       BIGINT UNSIGNED NULL,                  -- Checker

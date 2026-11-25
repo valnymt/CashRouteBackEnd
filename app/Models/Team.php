@@ -27,6 +27,14 @@ class Team extends Model
         return $this->hasMany(Trip::class);
     }
 
+    public function releaseIfIdle(): void
+    {
+        static::whereKey($this->getKey())
+            ->where('status', 'on_trip')
+            ->whereDoesntHave('trips', fn ($query) => $query->whereIn('status', ['assigned', 'in_transit']))
+            ->update(['status' => 'available']);
+    }
+
     public function confirmedBy()
     {
         return $this->belongsTo(User::class, 'confirmed_by');

@@ -20,7 +20,7 @@ class HandoverProofTest extends TestCase
         $tables = [
             'cash_requests' => 'id integer primary key, reference text, amount decimal, status text, completed_at text, updated_at text',
             'trips' => 'id integer primary key, cash_request_id integer, team_id integer, status text, accepted_at text, completed_at text, is_on_time boolean, updated_at text',
-            'teams' => 'id integer primary key',
+            'teams' => 'id integer primary key, status text, updated_at text',
             'branches' => 'id integer primary key, is_hq boolean',
             'trip_locations' => 'id integer primary key, trip_id integer, recorded_at text',
             'team_members' => 'team_id integer, user_id integer',
@@ -32,7 +32,7 @@ class HandoverProofTest extends TestCase
             DB::statement("create table {$table} ({$columns})");
         }
         DB::table('cash_requests')->insert(['id' => 1, 'reference' => 'REQ-TEST', 'amount' => 250000, 'status' => 'in_transit']);
-        DB::table('teams')->insert(['id' => 1]);
+        DB::table('teams')->insert(['id' => 1, 'status' => 'on_trip']);
         DB::table('branches')->insert(['id' => 1, 'is_hq' => true]);
         DB::table('team_members')->insert(['team_id' => 1, 'user_id' => 1]);
         DB::table('trips')->insert([
@@ -68,7 +68,16 @@ class HandoverProofTest extends TestCase
             'cash_request_id' => 1, 'stage' => 'dropoff', 'status' => 'verified', 'verified_at' => now(),
         ]);
         $submit()->assertCreated()->assertJsonPath('status', 'completed');
+        $this->assertDatabaseHas('teams', ['id' => 1, 'status' => 'available']);
+
+        DB::table('teams')->where('id', 1)->update(['status' => 'on_trip']);
+        DB::table('trips')->insert(['id' => 2, 'cash_request_id' => 2, 'team_id' => 1, 'status' => 'assigned']);
         $submit()->assertOk()->assertJsonPath('id', 1);
+        $this->assertDatabaseHas('teams', ['id' => 1, 'status' => 'on_trip']);
+
+        DB::table('trips')->where('id', 2)->update(['status' => 'completed']);
+        $submit()->assertOk()->assertJsonPath('id', 1);
+        $this->assertDatabaseHas('teams', ['id' => 1, 'status' => 'available']);
 
         $this->assertDatabaseCount('handover_proofs', 1);
         $this->assertDatabaseCount('handover_photos', 1);

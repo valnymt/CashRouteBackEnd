@@ -52,7 +52,7 @@ public function trips(Request $request)
 
     $user = $request->user();
 
-    $q = Trip::with(['cashRequest.branch', 'team'])
+    $q = Trip::with(['cashRequest.branch', 'cashRequest.verifiedHandoverOtps', 'team'])
         ->orderByDesc('created_at');
 
     if ($user->is_delivery_member) {
@@ -133,7 +133,7 @@ public function liveTrips(Request $request)
             Branch::where('is_hq', true)->firstOrFail()
         );
 
-        $trip = Trip::with(['cashRequest.branch', 'team', 'locations'])
+        $trip = Trip::with(['cashRequest.branch', 'cashRequest.verifiedHandoverOtps', 'team', 'locations'])
             ->whereHas('cashRequest', fn ($cr) => $cr->where('reference', $reference))
             ->firstOrFail();
 

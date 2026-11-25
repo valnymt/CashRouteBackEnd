@@ -57,6 +57,11 @@ class CashRequest extends Model
         return $this->hasOne(Trip::class);
     }
 
+    public function verifiedHandoverOtps()
+    {
+        return $this->otps()->where('status', 'verified')->whereNotNull('verified_at')->orderBy('verified_at');
+    }
+
     public function otps()
     {
         return $this->hasMany(Otp::class);

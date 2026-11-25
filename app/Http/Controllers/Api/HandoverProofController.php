@@ -63,6 +63,8 @@ class HandoverProofController extends Controller
 
                 $existing = $cashRequest->handoverProofs()->where('stage', 'dropoff')->latest('id')->first();
                 if ($existing && $trip->status === 'completed' && $cashRequest->status === 'completed') {
+                    $trip->team->releaseIfIdle();
+
                     return [$existing, false];
                 }
 
@@ -107,6 +109,8 @@ class HandoverProofController extends Controller
                     'is_on_time' => $cashRequest->due_at ? $completedAt->lte($cashRequest->due_at) : null,
                 ])->save();
                 $cashRequest->update(['status' => 'completed', 'completed_at' => $completedAt]);
+
+                $trip->team->releaseIfIdle();
 
                 return [$proof, true];
             });

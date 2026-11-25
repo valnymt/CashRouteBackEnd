@@ -11,31 +11,17 @@ C:\xampp\htdocs\CashRoute\
   Cashroute_backend\        ← this folder (Laravel API)
 ```
 
-Current state: the base Laravel install, API routes, Sanctum login and CORS for the frontend are
-set up. The CashRoute endpoints themselves (branches, requests, approvals…) aren't built yet;
-until they are, the frontend runs on its own demo data.
+The admin portal and Android app use this API. Laravel connects to MariaDB and handles authentication, assignments, trips, OTP, and the notification inbox.
 
 ## Setup (first time, e.g. after cloning)
 
-```bash
-composer install
-```
+1. Start MySQL in XAMPP.
+2. Run `composer install`, then copy `.env.example` to `.env` and run `php artisan key:generate`. Keep your existing `.env` and app key when updating an installed checkout.
+3. Set the `DB_*` values in `.env` for your local MariaDB instance. The example uses `DB_CONNECTION=mariadb`, `DB_HOST=127.0.0.1`, `DB_PORT=3306`, and `DB_DATABASE=cashroute`.
+4. For a **new database**, import `database/sql/01_schema.sql` in phpMyAdmin. Import `database/sql/02_seed.sql` afterward for system roles, permissions, and settings. Provision real branches (including HQ), accounts, and teams before creating requests.
+5. For an **existing database**, keep your data and verify the connection with `php artisan db:show --database=mariadb`. SQL-imported databases may have no Laravel migration ledger. The SQL schema supplies the application tables, including `notifications` and `device_tokens`.
+6. For Android push, set `FIREBASE_CREDENTIALS` to the service-account JSON for the Firebase project used by the Android app. Keep this file and `.env` local.
 
-```bash
-copy .env.example .env
-```
-
-```bash
-php artisan key:generate
-```
-
-```bash
-php artisan migrate
-```
-
-The database is SQLite by default (`database/database.sqlite`), so no MySQL is needed to start. To use
-MySQL from XAMPP instead, set `DB_CONNECTION=mysql` and the `DB_*` values in `.env`, create the
-database in phpMyAdmin, then run `php artisan migrate`.
 
 ## Run it
 
@@ -65,7 +51,7 @@ Already configured:
 The frontend first calls `GET /sanctum/csrf-cookie`, then `POST /api/login`, and after that sends
 the session cookie with every request.
 
-## Endpoints the frontend expects (to build next)
+## Admin API routes
 
 ```
 POST /api/login            GET  /api/me              POST /api/logout
@@ -91,4 +77,4 @@ rules to enforce are in its `src/services/mockApi.ts`:
 Validation errors should use Laravel's default 422 format (`{ message, errors: { field: [...] } }`);
 the frontend shows them next to the right form field.
 
-Already available: `GET /api/health` (status check) and `GET /api/user` (signed-in user, needs auth).
+Already available: `GET /api/health` (status check) and `GET /api/me` (signed-in user, needs auth).
